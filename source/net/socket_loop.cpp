@@ -20,12 +20,17 @@
 
 namespace storm {
 
-SocketLoop::SocketLoop(uint32_t maxSocket)
+SocketLoop::SocketLoop(uint32_t maxSocket, bool inLoop)
 	:m_running(false),
+	 m_inLoop(inLoop),
 	 m_maxSocket(maxSocket),
 	 m_allocId(-1) {
 
 	m_slot.resize(m_maxSocket);
+    for (uint32_t i = 0; i < m_maxSocket; ++i) {
+		Socket* s = &m_slot[i];
+		s->loop = this;
+    }
 
 	// 通知的socket
 	int fd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
@@ -205,7 +210,9 @@ void SocketLoop::handleRead(Socket* s) {
 		return;
 	}
 
-	s->handler->onData(s);
+	if (!s->handler->onData(s)) {
+		forceClose(s, CloseType_Self);
+	}
 }
 
 void SocketLoop::handleWrite(Socket* s) {
@@ -437,6 +444,11 @@ inline void SocketLoop::pushCmd(const SocketCmd& cmd) {
 	m_queue.push_back(cmd);
 	uint64_t d = 1;
 	::write(m_notifier->fd, &d, sizeof(d));
+
+	// 如果是单线程server直接处理好了
+	if (m_inLoop) {
+		handleCmd();
+	}
 }
 
 int32_t SocketLoop::connect(SocketHandler* handler, const string& ip, int32_t port) {
@@ -469,6 +481,8 @@ int32_t SocketLoop::listen(SocketHandler* handler, const string& ip, int32_t por
 		return -1;
 	}
 
+	s->ip = ip;
+	s->port = port;
 	s->fd = fd;
 	s->type = SocketType_Listen;
 	s->status = SocketStatus_Listen;

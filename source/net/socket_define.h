@@ -7,6 +7,23 @@
 
 namespace storm {
 
+class Socket;
+enum SocketCloseType {
+	CloseType_Self = 0,			// 本方主动断开
+	CloseType_Peer = 1,   		// 对端主动断开
+	CloseType_Timeout = 2,  	// 超时
+	CloseType_EmptyTimeout = 3, // 空连接超时
+	CloseType_ConnTimeOut = 4,  // 连接超时
+	CloseType_PacketError = 5, 	// 协议包出错
+	CloseType_ConnectFail = 6, 	// 连接失败
+};
+
+enum {
+	Packet_Normal,		// 解包成功
+	Packet_Less,		// 数据不够
+	Packet_Error,		// 解包出错
+};
+
 enum SocketType {
 	SocketType_Normal = 0,	// 普通连接
 	SocketType_Listen, 		// 监听连接
@@ -21,19 +38,6 @@ enum SocketStatus {
 	SocketStatus_Connected, 	// 已连接
 };
 
-enum SocketCloseType {
-	CloseType_Self = 0,			// 本方主动断开
-	CloseType_Peer = 1,   		// 对端主动断开
-	CloseType_Timeout = 2,  	// 超时
-	CloseType_EmptyTimeout = 3, // 空连接超时
-	CloseType_ConnTimeOut = 4,  // 连接超时
-	CloseType_PacketError = 5, 	// 协议包出错
-	CloseType_ConnectFail = 6, 	// 连接失败
-};
-
-// listen和connect搞单独线程安全的接口
-//
-
 enum SocketCmdType {
 	SocketCmd_Connect,
 	SocketCmd_Listen,
@@ -45,7 +49,7 @@ enum SocketCmdType {
 struct SocketCmd {
 	SocketCmd()
 		:type(SocketCmd_Send),
-	 	 id(0),
+		 id(0),
 		 closeType(CloseType_Self),
 		 buffer(NULL) {}
 
@@ -55,36 +59,14 @@ struct SocketCmd {
 	IoBuffer* buffer;
 };
 
-class Socket;
 class SocketHandler {
 public:
 	virtual ~SocketHandler() {};
 
-	virtual void onConnect(Socket* s) = 0;
-	virtual bool onAccept(Socket* s) = 0;
-	virtual bool onData(Socket* s) = 0;
-	virtual void onClose(Socket* s, uint32_t closeType) = 0;
-};
-
-struct Socket {
-	Socket()
-		:id(0),
-	 	 fd(-1), 
-		 type(SocketType_Normal),
-		 status(SocketStatus_Idle), 
-		 handler(NULL),
-		 readBuffer(NULL) {}
-
-	int32_t id;
-	int32_t fd;
-	int32_t type;
-	int32_t status;
-	SocketHandler* handler;
-	string ip;
-	int32_t port;
-
-	IoBuffer* readBuffer;
-	std::list<IoBuffer*> writeBuffer;
+	virtual void onConnect(Socket* s) {}
+	virtual void onAccept(Socket* s) {}
+	virtual bool onData(Socket* s) {return true;}
+	virtual void onClose(Socket* s, uint32_t closeType) {}
 };
 
 }

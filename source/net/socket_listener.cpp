@@ -6,7 +6,7 @@ namespace storm {
 
 SocketListener::SocketListener(SocketLoop* loop)
 	:m_loop(loop) {
-	setPacketParser(std::bind(PacketProtocolLen::decode, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+	setPacketParser(PacketProtocolLen::decode);
 }
 
 bool SocketListener::onData(Socket* s) {

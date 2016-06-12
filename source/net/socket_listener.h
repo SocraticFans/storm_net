@@ -17,7 +17,7 @@ public:
 	virtual bool onData(Socket* s);
 	virtual void onPacket(Socket* s, const char* data, uint32_t len) {}
 
-	typedef std::function<int32_t (IoBuffer*, const char*& data, uint32_t& len)> PacketParser;
+	typedef int32_t (*PacketParser)(IoBuffer*, const char*& data, uint32_t& len);
 
 	void setPacketParser(PacketParser parser) {
 		m_parser = parser;

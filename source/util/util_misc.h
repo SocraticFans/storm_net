@@ -1,10 +1,32 @@
 #ifndef _UTIL_MISC_H_
 #define _UTIL_MISC_H_
 
+#include <list>
+
 namespace storm {
 
 #define LIKELY(x) __builtin_expect((x), 1)
 #define UNLIKELY(x) __builtin_expect((x), 0)
+
+#define GETTER(name, type, field) \
+	inline type get##name() const { \
+		return field; \
+	}
+
+#define GETTER_REF(name, type, field) \
+	inline type& get##name() const { \
+		return field; \
+	}
+
+#define SETTER(name, type, field) \
+	inline void set##name(type _v) { \
+		field = _v; \
+	}
+
+#define SETTER_REF(name, type, field) \
+	inline void set##name(const type& _v) { \
+		field = _v; \
+	}
 
 class noncopyable {
 protected:

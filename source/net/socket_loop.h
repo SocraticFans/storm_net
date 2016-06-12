@@ -49,6 +49,10 @@ public:
 	void run();
 	void runOnce(int32_t ms);
 
+	void setCmdInLoop(bool inLoop) {
+		m_inLoop = inLoop;
+	}
+
 private:
 	Socket* getSocket(int32_t id);
 	Socket* getNewSocket();
@@ -67,6 +71,7 @@ private:
 
 	// 请求处理
 	void handleCmd();
+	void handleOneCmd(const SocketCmd& cmd);
 	void connectSocket(int32_t id);
 	void listenSocket(int32_t id);
 	void sendSocket(int32_t id, IoBuffer* buffer);

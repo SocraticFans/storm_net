@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+package storm;
+
+message RpcRequest {
+	optional uint32 proto_id = 1;
+	optional uint32 request_id = 2;
+	optional uint32 invoke_type = 3;
+	optional bytes request = 4;
+};
+
+message RpcResponse {
+	optional uint32 proto_id = 1;
+	optional uint32 request_id = 2;
+	optional bytes response = 4;
+	optional int32 ret = 5;
+	optional string errorMessage = 6;
+};
+

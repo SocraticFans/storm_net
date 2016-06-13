@@ -7,6 +7,7 @@
 #include "net/socket_loop.h"
 
 #include "util/util_config.h"
+#include "util/util_option.h"
 #include "util/util_string.h"
 
 #include "server_config.h"
@@ -21,7 +22,6 @@ public:
 	virtual ~StormServer();
 
 	int run(int argc, char** argv);
-	void terminate();
 
 	virtual bool init() = 0;
 	virtual void destroy() = 0;
@@ -29,36 +29,76 @@ public:
 
 	void setServerType(ServerType type);
 
-protected:
-	// 开始服务监听，并设置网络loop是否直接处理网络包逻辑
-	bool startService(bool inLoop);
+	void status(std::string& out);
 
-	// 开启服务自己的逻辑处理线程，只在MultiThreadServer用到
-	void startServiceThread();
+protected:
+	// 主循环
+	void mainLoop();
+
+	// 启动日志
+	void startLog();
+
+	// 开始服务监听
+	bool startListener();
+
+	// 开始服务
+	void startService();
+
+	// 关闭服务
+	void terminateService();
 
 	// 开启网络线程
 	void startNetThread();
 
+	// 结束网络线程
+	void terminateNetThread();
+
 	// 网络loop
 	void netLoop();
 
-	template <class T>
-	bool addService(const std::string& name);
-	template <class T>
-	void addService(const ServiceConfig& cfg);
+	// 结束
+	void terminate();
+
+	// 网络线程定时
+	void updateNet();
+
 
 	void setPacketParser(const std::string& name, SocketListener::PacketParser parser);
 
 	void parseConfig(int argc, char** argv);
 	void parseServerConfig(const CConfig& cfg);
 	void parseClientConfig(const CConfig& cfg);
+	ServerType parserServerType(const std::string& str);
+	void displayServer();
+
+	void savePidFile();
+	void removePidFile();
+	void killOldProcess();
+	void daemon();
+
+	template<typename T>
+	void addService(const std::string& serviceName, SocketListener::PacketParser parser = NULL) {
+		std::map<string, ServiceConfig>& allService = m_serverCfg.services;
+		std::map<string, ServiceConfig>::iterator it = allService.find(serviceName);
+		if (it == allService.end()) {
+			throw std::runtime_error("cannot find service config, service: " + serviceName);
+		}
+		if (!addService<T>(it->second, parser)) {
+			throw std::runtime_error("add service error, service: " + serviceName);
+		}
+	}
+
+	template <class T>
+	bool addService(const ServiceConfig& cfg, SocketListener::PacketParser parser = NULL);
 
 protected:
 	typedef std::map<std::string, StormListener*> ListenerMapType;
 	typedef std::vector<StormService*> ServiceVector;
 
-	ServerConfig 	m_serverCfg;
-	ClientConfig 	m_clientCfg;
+	COption 		m_option;				// 命令行选项
+	ServerConfig 	m_serverCfg;			// 服务端配置
+	ClientConfig 	m_clientCfg;			// 客户端配置
+
 	SocketLoop*		m_netLoop;				// 网络loop实例
 	ListenerMapType m_listeners;			// 所有的监听器
 	ServiceVector	m_inLoopServices;		// 在loop中处理逻辑的Service
@@ -67,7 +107,7 @@ protected:
 };
 
 template <class T>
-void StormServer::addService(const ServiceConfig& cfg) {
+bool StormServer::addService(const ServiceConfig& cfg, SocketListener::PacketParser parser) {
 	//const std::string& key = cfg.name + cfg.ip + UtilString::tostr(cfg.port);
 	const std::string& key = cfg.name;
 
@@ -76,25 +116,38 @@ void StormServer::addService(const ServiceConfig& cfg) {
 	if (it == m_listeners.end()) {
 		StormListener* l = new StormListener(m_netLoop);
 		l->setName(cfg.name);
-		l->setIp(cfg.ip);
+		l->setIp(cfg.host);
 		l->setPort(cfg.port);
+		l->m_config = cfg;
 		it = m_listeners.insert(std::make_pair(key, l)).first;
 	}
 
-	// 创建服务对象
-	T* service = new T(m_netLoop, it->second);
-
-	if (m_serverCfg.type == ServerType_MultiThread && cfg.inLoop) { // 独立线程服务
-		m_inLoopServices.push_back(service);
-	} else {														// loop线程服务
-		m_notInLoopServices.push_back(service);
+	int32_t num = 1;
+	if (m_serverCfg.type == ServerType_MultiThread && !cfg.inLoop) {
+		num = cfg.threadNum;
 	}
+	for (int32_t i = 0; i < num; ++i) {
+		// 创建服务对象
+		T* service = new T(m_netLoop, it->second);
+
+		if (m_serverCfg.type == ServerType_SingleThread) {
+			m_inLoopServices.push_back(service);
+		} else if (m_serverCfg.type == ServerType_MultiThread) {
+			if (cfg.inLoop) {
+				m_inLoopServices.push_back(service);
+			} else {
+				m_notInLoopServices.push_back(service);
+			}
+		}
+	}
+
+	// 设置分包解析器
+	if (parser) {
+		it->second->setPacketParser(parser);
+	}
+
+	return true;
 }
-
-// SocketLoop 加个inLoop标记
-// OneThreadServer		单线程Server，用户loop、rpc接口实现和网络在同一个线程 loopOnce loop loopOnce(保证网络包发出去)
-// TwoThreadServer		双线程Server，用户loop、rpc接口一个线程，网络一个线程
-// MultiThreadServer	多线程Server，用户loop单独一个线程，网络单独一个线程，rpc接口多个线程
-
+extern StormServer* g_stormServer;
 }
 #endif

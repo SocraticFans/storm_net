@@ -14,21 +14,22 @@ enum ServerType {
 
 struct ServiceConfig {
 	bool inLoop; 					// 在多线程Server模式，配置网络处理是否在loop线程，单线程Server模式无意义
-	string name;
-	string ip;
-	uint32_t port;
+	string name;					// 服务名字
+	string host;					// 监听ip
+	uint32_t port;					// 监听port
 	uint32_t threadNum;				// 多线程模式，网络逻辑不在loop中时才有意义
-	uint32_t maxConnections;
-	uint32_t maxQueueLen;
-	uint32_t keepAliveTime;
-	uint32_t emptyConnTimeOut;
-	uint32_t queueTimeout;
+	uint32_t maxConnections;		// 最大连接数
+	uint32_t maxQueueLen;			// 最大包队列长度
+	uint32_t keepAliveTime;			// keep alive时间
+	uint32_t emptyConnTimeOut;		// 空连接时间
+	uint32_t queueTimeout;			// 队列超时
 };
 
 struct ServerConfig {
-	uint32_t type;
-	std::string appName;
-	std::string serverName;
+	uint32_t type;					// server类型，查看ServerType枚举
+	std::string appName;			// 应用名称
+	std::string serverName;			// 服务名称
+	std::string pidFileName;		// pid文件名称
 
 	std::string basePath;
 	std::string dataPath;
@@ -44,11 +45,13 @@ struct ServerConfig {
 	int         reportFlow;
 	int         isCheckSet;
 
-	uint32_t logNum;
-	uint64_t logSize;
-	uint32_t logLevel;
+	uint32_t logNum;				// 滚动日志最多文件个数
+	uint64_t logSize;				// 滚动日志最大空间
+	uint32_t logLevel;				// 日志等级
+	bool	logSync;				// 日志是否同步
+	bool	logStdOut;				// 日志是否输出到标准输出
 
-	std::map<string, ServiceConfig> services;
+	std::map<string, ServiceConfig> services;	// 所有的服务配置
 };
 
 struct ClientConfig {

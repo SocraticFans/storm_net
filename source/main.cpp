@@ -6,6 +6,8 @@
 #include "util/util_protocol.h"
 #include "storm_net.h"
 
+#include "framework/storm_cmd_service.h"
+
 using namespace storm;
 
 // 启动流程思考
@@ -23,24 +25,15 @@ public:
 
 // 考虑下在init里调用其他服务，尤其是同步调用问题
 bool Server::init() {
-	setServerType(ServerType_SingleThread);
-	setServerType(ServerType_MultiThread);
-
-	ServiceConfig config;
-	config.name = "test";
-	config.ip = "127.0.0.1";
-	config.port = 1234;
-	config.inLoop = false;
-
-	addService<StormService>(config);
-	setPacketParser(config.name, PacketProtocolLine::decode);
+//	addService<StormService>("TestService", PacketProtocolLine::decode);
+	addService<StormCmdService>("TestService");
 	return true;
 }
 
+Server g_server;
+
 int main(int argc, char** argv) {
-	printf("storm net new start!\n");
-	Server server;
-	server.run(argc, argv);
+	g_server.run(argc, argv);
 
 	/*
 	SocketLoop loop;

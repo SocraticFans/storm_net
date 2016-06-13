@@ -1,6 +1,7 @@
 #include "socket_listener.h"
 
 #include "util/util_protocol.h"
+#include "util/util_log.h"
 
 namespace storm {
 
@@ -18,7 +19,7 @@ bool SocketListener::onData(Socket* s) {
 		if (code == Packet_Less) {
 			return true;
 		} else if (code == Packet_Error) {
-			//STORM_ERROR << "packet error " << id << " " << fd << " " << buffer->getSize();
+			STORM_ERROR << "packet error, id: " << s->id << ", fd: " << s->fd << " size: " << buffer->getSize();
 			return false;
 		}
 		onPacket(s, data, len);

@@ -8,6 +8,7 @@ aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR} SRC_LIST)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/net SRC_LIST)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/util SRC_LIST)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/framework SRC_LIST)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/proto SRC_LIST)
 
 
 #add_library(storm ${SRC_LIST} ${PROTO_SRCS} ${PROTO_HDRS})
@@ -24,5 +25,6 @@ install(FILES ${headers2} DESTINATION include/net)
 install(FILES ${headers3} DESTINATION include/util)
 install(FILES ${headers4} DESTINATION include/framework)
 
-add_executable(main ${SRC_LIST})
-target_link_libraries(main pthread libprotobuf.a)
+set(APP Test)
+add_executable(${APP} ${SRC_LIST})
+target_link_libraries(${APP} pthread libprotobuf.a)

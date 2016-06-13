@@ -44,6 +44,7 @@ public:
 	static void finish();
 
 	static void setLogSync(bool sync);
+	static void setLogStdOut(bool stdOut);
 	static void setLogLevel(LogLevel level);
 	static void setStormLogLevel(LogLevel level);
 	static void setRollLogInfo(const string& logName, uint32_t maxFileNum, uint64_t maxFileSize);

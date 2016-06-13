@@ -14,7 +14,7 @@ namespace storm {
 	}
 
 #define GETTER_REF(name, type, field) \
-	inline type& get##name() const { \
+	inline type& get##name() { \
 		return field; \
 	}
 

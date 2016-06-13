@@ -18,6 +18,26 @@ enum SocketCloseType {
 	CloseType_ConnectFail = 6, 	// 连接失败
 };
 
+inline const char* etos(SocketCloseType closeType) {
+	switch (closeType) {
+		case CloseType_Self:
+			return "CloseType_Self";
+		case CloseType_Peer:
+			return "CloseType_Peer";
+		case CloseType_Timeout:
+			return "CloseType_Timeout";
+		case CloseType_EmptyTimeout:
+			return "CloseType_EmptyTimeout";
+		case CloseType_ConnTimeOut:
+			return "CloseType_ConnTimeOut";
+		case CloseType_PacketError:
+			return "CloseType_PacketError";
+		case CloseType_ConnectFail:
+			return "CloseType_ConnectFail";
+	}
+	return "unknown";
+}
+
 enum {
 	Packet_Normal,		// 解包成功
 	Packet_Less,		// 数据不够

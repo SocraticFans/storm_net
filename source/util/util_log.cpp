@@ -3,6 +3,7 @@
 #include "util_file.h"
 #include "util_thread.h"
 
+#include <iostream>
 #include <string.h>
 #include <stdio.h>
 #include <thread>
@@ -212,6 +213,7 @@ protected:
 static string g_logPath = ".";
 static string g_logPrefix;
 static bool g_syncLog = true;
+static bool g_stdOut = false;
 static bool g_logExit = false;
 static std::thread g_logThread;
 static Mutex g_logMutex;
@@ -230,12 +232,17 @@ void LogManager::initLog(const string& path, const string fileNamePrefix) {
 	atexit(LogManager::finish);
 
 	lock.unlock();
-	startAsyncThread();
+	//startAsyncThread();
 }
 
 void LogManager::setLogSync(bool sync) {
 	ScopeMutex<Mutex> lock(g_logMutex);
 	g_syncLog = sync;
+}
+
+void LogManager::setLogStdOut(bool stdOut) {
+	ScopeMutex<Mutex> lock(g_logMutex);
+	g_stdOut = stdOut;
 }
 
 void LogManager::setLogLevel(LogLevel level) {
@@ -277,7 +284,9 @@ void LogManager::finish() {
 	if (g_logExit == false) {
 		g_logExit = true;
 		lock.unlock();
-		g_logThread.join();
+		if (!g_syncLog) {
+			g_logThread.join();
+		}
 	}
 }
 
@@ -439,6 +448,9 @@ LogStream::~LogStream() {
 	logData->content = oss.str();
 
 	LogManager::doLog(logData);
+	if (g_stdOut) {
+		std::cout << logData->content;
+	}
 }
 
 ostringstream& LogStream::stream() {
@@ -481,6 +493,10 @@ RollDayStream::~RollDayStream() {
 	logData2->logType = LogType_Day;
 	logData2->content = oss.str();
 	LogManager::doLog(logData2);
+
+	if (g_stdOut) {
+		std::cout << logData->content;
+	}
 }
 
 ostringstream& RollDayStream::stream() {

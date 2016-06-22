@@ -20,6 +20,7 @@ StormCmdService::StormCmdService(SocketLoop* loop, StormListener* listener)
 
 	registerHandler("ping", std::bind(&StormCmdService::ping, this, _1, _2, _3));
 	registerHandler("status", std::bind(&StormCmdService::status, this, _1, _2, _3));
+	registerHandler("exit", std::bind(&StormCmdService::exit, this, _1, _2, _3));
 }
 
 void StormCmdService::onRequest(const Connection& conn, const char* buffer, uint32_t len) {
@@ -37,8 +38,11 @@ void StormCmdService::onRequest(const Connection& conn, const char* buffer, uint
 	}
 	params.erase(params.begin());
 	string out;
-	(it->second)(conn, params, out);
+	bool success = (it->second)(conn, params, out);
 	m_loop->send(conn.id, out + "\n");
+	if (!success) {
+		m_loop->close(conn.id);
+	}
 }
 
 void StormCmdService::registerHandler(const std::string& cmd, Handler handler) {
@@ -49,14 +53,20 @@ void StormCmdService::registerHandler(const std::string& cmd, Handler handler) {
 	m_handlers[cmd] = handler;
 }
 
-int32_t StormCmdService::ping(const Connection& conn, const std::vector<std::string>& params, std::string& out) {
-	out = "pong, params size: " + UtilString::tostr(params.size());
-	return 0;
+bool StormCmdService::ping(const Connection& conn, const std::vector<std::string>& params, std::string& out) {
+//	out = "pong, params size: " + UtilString::tostr(params.size());
+	out = "pong";
+	return true;
 }
 
-int32_t StormCmdService::status(const Connection& conn, const std::vector<std::string>& params, std::string& out) {
+bool StormCmdService::status(const Connection& conn, const std::vector<std::string>& params, std::string& out) {
 	g_stormServer->status(out);
-	return 0;
+	return true;
+}
+
+bool StormCmdService::exit(const Connection& conn, const std::vector<std::string>& params, std::string& out) {
+	out = "Bye!";
+	return false;
 }
 
 }

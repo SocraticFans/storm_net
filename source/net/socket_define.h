@@ -21,19 +21,19 @@ enum SocketCloseType {
 inline const char* etos(SocketCloseType closeType) {
 	switch (closeType) {
 		case CloseType_Self:
-			return "CloseType_Self";
+			return "Self";
 		case CloseType_Peer:
-			return "CloseType_Peer";
+			return "Peer";
 		case CloseType_Timeout:
-			return "CloseType_Timeout";
+			return "Timeout";
 		case CloseType_EmptyTimeout:
-			return "CloseType_EmptyTimeout";
+			return "EmptyTimeout";
 		case CloseType_ConnTimeOut:
-			return "CloseType_ConnTimeOut";
+			return "ConnTimeOut";
 		case CloseType_PacketError:
-			return "CloseType_PacketError";
+			return "PacketError";
 		case CloseType_ConnectFail:
-			return "CloseType_ConnectFail";
+			return "ConnectFail";
 	}
 	return "unknown";
 }
@@ -77,16 +77,6 @@ struct SocketCmd {
 	int32_t	id;
 	int32_t closeType;
 	IoBuffer* buffer;
-};
-
-class SocketHandler {
-public:
-	virtual ~SocketHandler() {};
-
-	virtual void onConnect(Socket* s) {}
-	virtual void onAccept(Socket* s) {}
-	virtual bool onData(Socket* s) {return true;}
-	virtual void onClose(Socket* s, uint32_t closeType) {}
 };
 
 }

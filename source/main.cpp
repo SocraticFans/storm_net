@@ -8,6 +8,8 @@
 
 #include "framework/storm_cmd_service.h"
 
+#include "echo_service.h"
+
 using namespace storm;
 
 // 启动流程思考
@@ -27,6 +29,7 @@ public:
 bool Server::init() {
 //	addService<StormService>("TestService", PacketProtocolLine::decode);
 	addService<StormCmdService>("TestService");
+	addService<EchoService>("EchoService");
 	return true;
 }
 

@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "util/util_log.h"
 
 namespace storm {
 
@@ -73,7 +74,7 @@ int socketBind(const char* pHost, int iPort) {
 
     freeaddrinfo(ai_list);
 	if (!bSuccess) {
-//		STORM_ERROR << "socket-server error when binding: " << strerror(errno);
+		STORM_ERROR << "socket-server error when binding: " << strerror(errno);
 		return -1;
 	}
     return iFd;

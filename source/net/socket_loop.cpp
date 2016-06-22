@@ -16,7 +16,10 @@
 #include <unistd.h>
 
 #include "util/util_time.h"
+#include "util/util_log.h"
+
 #include "socket_util.h"
+#include "socket_handler.h"
 
 namespace storm {
 
@@ -35,7 +38,7 @@ SocketLoop::SocketLoop(uint32_t maxSocket, bool inLoop)
 	// 通知的socket
 	int fd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
 	if (fd < 0) {
-		//STORM_ERROR << "efd < 0";
+		STORM_ERROR << "efd < 0";
 		::exit(1);
 	}
 	m_notifier = getNewSocket();
@@ -126,7 +129,7 @@ void SocketLoop::handleAccept(Socket* s) {
 
 		Socket* ns = getNewSocket();
 		if (ns == NULL) {
-			//STORM_ERROR << "over max socket num";
+			STORM_ERROR << "over max socket num";
 			::close(fd);
 			break;
 		}
@@ -155,7 +158,7 @@ void SocketLoop::handleConnect(Socket* s) {
 	socklen_t len = sizeof(error);
 	int32_t code = getsockopt(s->fd, SOL_SOCKET, SO_ERROR, &error, &len);
 	if (code < 0 || error) {
-		//STORM_ERROR << "connect error: " << strerror(iError);
+		STORM_ERROR << "connect error: " << strerror(error);
         forceClose(s, CloseType_ConnectFail);
 		return;
 	}
@@ -196,7 +199,7 @@ void SocketLoop::handleRead(Socket* s) {
     		} else if (errno == EINTR) {
     			continue;
     		} else {
-				//STORM_ERROR << "connection error fd: " << s->fd << " error: " << strerror(errno);
+				STORM_ERROR << "connection error fd: " << s->fd << " error: " << strerror(errno);
 				needClose = true;
     			break;
     		}
@@ -353,7 +356,7 @@ void SocketLoop::connectSocket(int32_t id) {
 		int status = ::connect(fd, (struct sockaddr*)&stAddr, sizeof(stAddr));
 		if (status != 0 && errno != EINPROGRESS) {
 			::close(fd);
-			//STORM_ERROR << "connect error: " << strerror(errno);
+			STORM_ERROR << "connect error: " << strerror(errno);
 			break;
 		}
 
@@ -373,7 +376,7 @@ void SocketLoop::connectSocket(int32_t id) {
 	} while (0);
 
 	if (!success) {
-		//STORM_ERROR << "socket-server: connect socket error";
+		STORM_ERROR << "socket-server: connect socket error";
 		s->handler->onClose(s, CloseType_ConnectFail);
 		s->status = SocketStatus_Idle;
 	}
@@ -480,12 +483,12 @@ int32_t SocketLoop::connect(SocketHandler* handler, const string& ip, int32_t po
 int32_t SocketLoop::listen(SocketHandler* handler, const string& ip, int32_t port, int32_t backlog) {
 	int32_t fd = socketListen(ip.c_str(), port, backlog);
 	if (fd < 0) {
-		//STORM_ERROR << "error when bind " << listenerName;
+		STORM_ERROR << "error when bind, ip:" << ip << ", port: " << port;
 		return -1;
 	}
 	Socket* s = getNewSocket();
 	if (s == NULL) {
-		//STORM_ERROR << "error when getSocket " << listenerName;
+		STORM_ERROR << "error when getSocket";
 		::close(fd);
 		return -1;
 	}

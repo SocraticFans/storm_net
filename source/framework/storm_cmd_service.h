@@ -17,12 +17,13 @@ public:
 	virtual void onClose(const Connection& conn, uint32_t closeType) {}
 	virtual void onAccept(const Connection& conn) {}
 
-	typedef std::function<int32_t (const Connection&, const vector<std::string>&, std::string&)> Handler;
+	typedef std::function<bool (const Connection&, const vector<std::string>&, std::string&)> Handler;
 	void registerHandler(const std::string& cmd, Handler handler);
 
 private:
-	int32_t ping(const Connection& conn, const std::vector<std::string>& params, std::string& out);
-	int32_t status(const Connection& conn, const std::vector<std::string>& params, std::string& out);
+	bool ping(const Connection& conn, const std::vector<std::string>& params, std::string& out);
+	bool status(const Connection& conn, const std::vector<std::string>& params, std::string& out);
+	bool exit(const Connection& conn, const std::vector<std::string>& params, std::string& out);
 
 private:
 	typedef std::map<std::string, Handler> HandlerMap;

@@ -14,7 +14,7 @@ using namespace std;
 namespace storm {
 
 StormListener::StormListener(SocketLoop* loop, bool inLoop)
-	:SocketListener(loop),
+	:SocketHandler(loop),
 	 m_inLoop(inLoop),
 	 m_service(NULL) {
 

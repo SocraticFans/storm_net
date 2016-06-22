@@ -1,0 +1,9 @@
+syntax = "proto2";
+
+message EchoReq {
+	optional string msg = 1;
+};
+
+message EchoAck {
+	optional string msg = 1;
+};

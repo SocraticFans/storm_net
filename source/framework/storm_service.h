@@ -4,7 +4,10 @@
 #include <thread>
 
 #include "net/socket_loop.h"
+
 #include "util/util_thread.h"
+#include "util/util_log.h"
+
 #include "proto/rpc_proto.pb.h"
 
 #include "connection.h"

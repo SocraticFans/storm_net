@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <iostream>
 
-#include "util/util_log.h"
 #include "util/util_protocol.h"
 
 #include "storm_listener.h"

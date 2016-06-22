@@ -1,16 +1,17 @@
-#include "socket_listener.h"
+#include "socket_handler.h"
+
+#include "socket_loop.h"
 
 #include "util/util_protocol.h"
 #include "util/util_log.h"
 
 namespace storm {
-
-SocketListener::SocketListener(SocketLoop* loop)
+SocketHandler::SocketHandler(SocketLoop* loop)
 	:m_loop(loop) {
 	setPacketParser(PacketProtocolLen::decode);
 }
 
-bool SocketListener::onData(Socket* s) {
+bool SocketHandler::onData(Socket* s) {
 	IoBuffer* buffer = s->readBuffer;
 	while (1) {
 		const char* data = NULL;
@@ -26,5 +27,4 @@ bool SocketListener::onData(Socket* s) {
 	}
 	return true;
 }
-
 }

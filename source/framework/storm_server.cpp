@@ -236,7 +236,7 @@ void StormServer::netLoop() {
 	}
 }
 
-void StormServer::setPacketParser(const std::string& name, SocketListener::PacketParser parser) {
+void StormServer::setPacketParser(const std::string& name, SocketHandler::PacketParser parser) {
 	ListenerMapType::iterator it = m_listeners.find(name);
 	if (it != m_listeners.end()) {
 		it->second->setPacketParser(parser);

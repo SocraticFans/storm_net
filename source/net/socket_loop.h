@@ -9,6 +9,7 @@
 
 using namespace std;
 namespace storm {
+class SocketHandler;
 class SocketLoop;
 struct Socket {
 	Socket()

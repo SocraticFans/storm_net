@@ -2,7 +2,7 @@
 #define STORM_LISTENER_H_
 
 #include "net/socket_loop.h"
-#include "net/socket_listener.h"
+#include "net/socket_handler.h"
 
 #include "util/util_misc.h"
 #include "util/util_thread.h"
@@ -13,7 +13,7 @@
 
 namespace storm {
 class StormService;
-class StormListener : public SocketListener {
+class StormListener : public SocketHandler {
 public:
 	friend class StormService;
 	StormListener(SocketLoop* loop, bool inLoop = true);

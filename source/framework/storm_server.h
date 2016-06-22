@@ -63,7 +63,7 @@ protected:
 	void updateNet();
 
 
-	void setPacketParser(const std::string& name, SocketListener::PacketParser parser);
+	void setPacketParser(const std::string& name, SocketHandler::PacketParser parser);
 
 	void parseConfig(int argc, char** argv);
 	void parseServerConfig(const CConfig& cfg);
@@ -77,7 +77,7 @@ protected:
 	void daemon();
 
 	template<typename T>
-	void addService(const std::string& serviceName, SocketListener::PacketParser parser = NULL) {
+	void addService(const std::string& serviceName, SocketHandler::PacketParser parser = NULL) {
 		std::map<string, ServiceConfig>& allService = m_serverCfg.services;
 		std::map<string, ServiceConfig>::iterator it = allService.find(serviceName);
 		if (it == allService.end()) {
@@ -89,7 +89,7 @@ protected:
 	}
 
 	template <class T>
-	bool addService(const ServiceConfig& cfg, SocketListener::PacketParser parser = NULL);
+	bool addService(const ServiceConfig& cfg, SocketHandler::PacketParser parser = NULL);
 
 protected:
 	typedef std::map<std::string, StormListener*> ListenerMapType;
@@ -107,7 +107,7 @@ protected:
 };
 
 template <class T>
-bool StormServer::addService(const ServiceConfig& cfg, SocketListener::PacketParser parser) {
+bool StormServer::addService(const ServiceConfig& cfg, SocketHandler::PacketParser parser) {
 	//const std::string& key = cfg.name + cfg.ip + UtilString::tostr(cfg.port);
 	const std::string& key = cfg.name;
 

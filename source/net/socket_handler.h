@@ -16,7 +16,7 @@ public:
 	virtual bool onData(Socket* s);
 	virtual void onClose(Socket* s, uint32_t closeType) {}
 
-	// 逻辑调用
+	// 网络线程调用
 	virtual void onPacket(Socket* s, const char* data, uint32_t len) = 0;
 
 	typedef int32_t (*PacketParser)(IoBuffer*, const char*& data, uint32_t& len);

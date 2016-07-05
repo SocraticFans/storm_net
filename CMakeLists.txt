@@ -28,4 +28,4 @@ find_package(Protobuf REQUIRED)
 #install(DIRECTORY cmake DESTINATION .)
 
 add_subdirectory(source)
-#add_subdirectory(examples EXCLUDE_FROM_ALL)
+add_subdirectory(example EXCLUDE_FROM_ALL)

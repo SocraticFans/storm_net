@@ -6,6 +6,7 @@
 #include "util/util_protocol.h"
 
 #include "storm_listener.h"
+#include "storm_request.h"
 
 namespace storm {
 
@@ -31,20 +32,18 @@ void StormService::onRequest(const Connection& conn, const char* buffer, uint32_
 	// 业务逻辑
 	ret = onRpcRequest(conn, req, resp);
 
-	/*
 	if (req.invoke_type() == InvokeType_OneWay) {
 		return;
 	}
-	*/
 
 	//回包
 	resp.set_ret(ret);
 	resp.set_proto_id(req.proto_id());
 	resp.set_request_id(req.request_id());
 
-	//IOBuffer::ptr respBuf = FrameProtocolLen::encode(resp);
-	string data;
-	m_loop->send(conn.id, data);
+	IoBuffer* data = PacketProtocolLen::encode(resp);
+	m_loop->send(conn.id, data->getHead(), data->getSize());
+	delete data;
 }
 
 void StormService::startThread() {

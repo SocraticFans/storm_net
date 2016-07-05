@@ -12,7 +12,7 @@ enum SocketCloseType {
 	CloseType_Self = 0,			// 本方主动断开
 	CloseType_Peer = 1,   		// 对端主动断开
 	CloseType_Timeout = 2,  	// 超时
-	CloseType_EmptyTimeout = 3, // 空连接超时
+	CloseType_IdleTimeout = 3, // 空连接超时
 	CloseType_ConnTimeOut = 4,  // 连接超时
 	CloseType_PacketError = 5, 	// 协议包出错
 	CloseType_ConnectFail = 6, 	// 连接失败
@@ -26,8 +26,8 @@ inline const char* etos(SocketCloseType closeType) {
 			return "Peer";
 		case CloseType_Timeout:
 			return "Timeout";
-		case CloseType_EmptyTimeout:
-			return "EmptyTimeout";
+		case CloseType_IdleTimeout:
+			return "IdleTimeout";
 		case CloseType_ConnTimeOut:
 			return "ConnTimeOut";
 		case CloseType_PacketError:

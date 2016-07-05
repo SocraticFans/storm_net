@@ -37,8 +37,13 @@ void redOutput(const string& content) {
 	cout << "\033[1;31m" << content <<  "\033[0m" << endl;
 }
 
+bool StormServer::isTerminate() {
+	return !g_running;
+}
+
 int StormServer::run(int argc, char** argv) {
 	g_stormServer = this;
+	m_netTimer.addTimer(500, std::bind(&StormServer::updateNet, this), true);
 	try {
 		parseConfig(argc, argv);
 		if (!m_option.isDaemon()) {
@@ -121,7 +126,7 @@ void StormServer::mainLoop() {
 		while (g_running) {
 			loop();
 			m_netLoop->runOnce(2);
-			updateNet();
+			m_netTimer.update(UtilTime::getNowMS());
 		}
 	} else if (type == ServerType_MultiThread) {
 		while (g_running) {
@@ -137,6 +142,7 @@ void StormServer::mainLoop() {
 StormServer::StormServer()
 : m_netLoop(NULL) {
 	m_netLoop = new SocketLoop();
+	m_proxyMgr = new ServiceProxyManager(m_netLoop);
 }
 
 StormServer::~StormServer() {
@@ -232,7 +238,7 @@ void StormServer::terminateNetThread() {
 void StormServer::netLoop() {
 	while (g_running) {
 		m_netLoop->runOnce(2);
-		updateNet();
+		m_netTimer.update(UtilTime::getNowMS());
 	}
 }
 
@@ -400,7 +406,6 @@ void StormServer::status(std::string& out) {
 }
 
 void StormServer::updateNet() {
-	// TODO 定时调用，而不是每次loop都调用
 	for (ListenerMapType::iterator it = m_listeners.begin(); it != m_listeners.end(); ++it) {
 		it->second->updateNet();
 	}

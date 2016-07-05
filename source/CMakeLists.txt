@@ -11,9 +11,9 @@ aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/framework SRC_LIST)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/proto SRC_LIST)
 
 
-#add_library(storm ${SRC_LIST} ${PROTO_SRCS} ${PROTO_HDRS})
+add_library(storm ${SRC_LIST})
 
-#install(TARGETS storm DESTINATION lib)
+install(TARGETS storm DESTINATION lib)
 
 file(GLOB headers1 *.h)
 file(GLOB headers2 net/*.h)
@@ -24,7 +24,3 @@ install(FILES ${headers1} DESTINATION include)
 install(FILES ${headers2} DESTINATION include/net)
 install(FILES ${headers3} DESTINATION include/util)
 install(FILES ${headers4} DESTINATION include/framework)
-
-set(APP Test)
-add_executable(${APP} ${SRC_LIST})
-target_link_libraries(${APP} pthread libprotobuf.a)

@@ -2,43 +2,39 @@
 #define UTIL_PROTOCOL_H_
 
 #include "net/socket_define.h"
+#include <google/protobuf/message.h>
 
 namespace storm {
 
 class PacketProtocolLen {
 public:
-	/*
-	static IOBuffer::ptr encode(const string& data) {
-		uint32_t packetLen = data.size() + 4;
-		IOBuffer::ptr packet(new IOBuffer(packetLen));
-		packet->push_back(packetLen);
-		packet->push_back(data);
-		return packet;
+	static IoBuffer* encode(const string& data) {
+		uint32_t bufferLen = data.size() + 4;
+		IoBuffer* buffer = new IoBuffer(bufferLen);
+		buffer->push_back(bufferLen);
+		buffer->push_back(data);
+		return buffer;
 	}
-	*/
 
-	/*
-	template <typename T>
-	static IOBuffer::ptr encode(const T& pb) {
-		uint32_t pbLen = pb.ByteSize();
-		uint32_t packetLen = pbLen + 4;
-		IOBuffer::ptr packet(new IOBuffer(packetLen));
-		packet->push_back(packetLen);
-		if (!pb.SerializeToArray(packet->getHead() + 4, pbLen)) {
-			return IOBuffer::ptr();
+	static IoBuffer* encode(const google::protobuf::Message& msg) {
+		uint32_t len = msg.ByteSize();
+		uint32_t bufferLen = len + 4;
+		IoBuffer* buffer = new IoBuffer(bufferLen);
+		buffer->push_back(bufferLen);
+		if (!msg.SerializeToArray(buffer->getHead() + 4, len)) {
+			return NULL;
 		}
-		packet->writeN(pbLen);
-		return packet;
+		buffer->writeN(len);
+		return buffer;
 	}
-	*/
 
 	/*
-	static IOBuffer::ptr encode(IOBuffer::ptr buffer) {
-		uint32_t packetLen =  buffer->getSize() + 4;
-		IOBuffer::ptr packet(new IOBuffer(packetLen));
-		packet->push_back(packetLen);
-		packet->push_back(buffer);
-		return packet;
+	static IoBuffer::ptr encode(IoBuffer::ptr buffer) {
+		uint32_t bufferLen =  buffer->getSize() + 4;
+		IoBuffer::ptr buffer(new IoBuffer(bufferLen));
+		buffer->push_back(bufferLen);
+		buffer->push_back(buffer);
+		return buffer;
 	}
 	*/
 
@@ -49,20 +45,20 @@ public:
 			return Packet_Less;
 		}
 		char* data = in->getHead();
-		uint32_t packetLen = 0;
+		uint32_t bufferLen = 0;
 		for (uint32_t i = 0; i < 4; i++) {
 			uint32_t shift_bit = (3-i)*8;
-			packetLen += (data[i]<<shift_bit)&(0xFF<<shift_bit);
+			bufferLen += (data[i]<<shift_bit)&(0xFF<<shift_bit);
 		}
-		if (packetLen > maxLen) {
+		if (bufferLen > maxLen) {
 			return Packet_Error;
 		}
-		if (len < packetLen) {
+		if (len < bufferLen) {
 			return Packet_Less;
 		}
 		buffer = in->getHead() + 4;
-		size = packetLen - 4;
-		in->readN(packetLen);
+		size = bufferLen - 4;
+		in->readN(bufferLen);
 
 		return Packet_Normal;
 	}

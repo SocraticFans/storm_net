@@ -1,5 +1,4 @@
 #include "socket_handler.h"
-
 #include "socket_loop.h"
 
 #include "util/util_protocol.h"

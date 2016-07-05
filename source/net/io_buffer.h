@@ -42,6 +42,14 @@ public:
 		m_tail = m_capacity;
 	}
 
+	IoBuffer(const char* data, uint32_t len) {
+		m_capacity = len;
+		m_data = (char*)malloc(sizeof(char) * m_capacity);
+		memcpy(m_data, data, m_capacity);
+		m_head = 0;
+		m_tail = m_capacity;
+	}
+
 	IoBuffer& operator = (const IoBuffer& rhs) {
 		m_data = (char*)malloc(rhs.m_capacity);
 		m_head = rhs.m_head;
@@ -123,7 +131,7 @@ public:
 		m_capacity *= 2;
 	}
 
-	void reserve(uint32_t addSize) {
+	inline void reserve(uint32_t addSize) {
 		while (getRemainingSize() < addSize) {
 			doubleCapacity();
 		}

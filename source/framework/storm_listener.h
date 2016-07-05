@@ -32,7 +32,7 @@ public:
 	void updateNet();
 
 	void doTimeClose(uint32_t id);
-	void doEmptyClose(uint32_t id);
+	void doIdleClose(uint32_t id);
 
 	uint32_t getOnlinNum() {
 		return m_timelist.size();

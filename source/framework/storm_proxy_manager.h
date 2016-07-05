@@ -3,34 +3,43 @@
 
 #include "net/socket_loop.h"
 #include "net/socket_handler.h"
+#include "util/util_log.h"
+
+#include "storm_service_proxy.h"
 
 namespace storm {
-
-class StormProxyObject : public SocketHandler {
+class ServiceProxyManager {
 public:
-	StormProxyObject(SocketLoop* loop)
-	 :SocketHandler(loop) {
+	typedef std::map<std::string, ServiceProxy*> ProxyMap;
 
-	 }
-	virtual ~StormProxyObject() {}
+	ServiceProxyManager(SocketLoop* loop)
+		:m_loop(loop) {}
 
-	virtual void onConnect(Socket* s) {m_isActive = true;}
-	virtual void onClose(Socket* s, uint32_t closeType) {}
+	~ServiceProxyManager();
 
-	virtual void onPacket(Socket* s, const char* data, uint32_t len) = 0;
+
+	// 获得一个service代理
+	template <typename T>
+	T* stringToProxy(const std::string& serviceName) {
+		ScopeMutex<Mutex> lock(m_mutex);
+		ProxyMap::iterator it = m_proxys.find(serviceName);
+		if (it != m_proxys.end()) {
+			return dynamic_cast<T*>(it->second);
+		}
+		T* proxy = new T(m_loop);
+		if (proxy->parseFromString(serviceName) == false) {
+			delete proxy;
+			STORM_ERROR << "error! string: " << serviceName;
+			return NULL;
+		}
+		m_proxys.insert(std::make_pair(serviceName, proxy));
+		return proxy;
+	}
 
 private:
-	bool m_isContainer;		// 是否只是一个Proxy容器
-	std::string m_ip;		// ip
-	uint32_t m_port;		// port
-	int32_t m_socketId;		// socketId
-	bool m_isActive;		// 是否活跃
-
-};
-
-class StormProxyManager {
-public:
-
+	SocketLoop* m_loop;
+	Mutex m_mutex;
+	ProxyMap m_proxys;
 };
 
 }

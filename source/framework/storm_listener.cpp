@@ -84,7 +84,7 @@ void StormListener::onPacket(Socket* s, const char* data, uint32_t len) {
 int32_t StormListener::startListen() {
 	// 设置超时检测
 	m_conList.setTimeout(m_config.emptyConnTimeOut);
-	m_conList.setFunction(std::bind(&StormListener::doEmptyClose, this, std::placeholders::_1));
+	m_conList.setFunction(std::bind(&StormListener::doIdleClose, this, std::placeholders::_1));
 	m_timelist.setTimeout(m_config.keepAliveTime);
 	m_timelist.setFunction(std::bind(&StormListener::doTimeClose, this, std::placeholders::_1));
 
@@ -105,8 +105,8 @@ void StormListener::doTimeClose(uint32_t id) {
 	m_loop->close(id, CloseType_Timeout);
 }
 
-void StormListener::doEmptyClose(uint32_t id) {
-	m_loop->close(id, CloseType_EmptyTimeout);
+void StormListener::doIdleClose(uint32_t id) {
+	m_loop->close(id, CloseType_IdleTimeout);
 }
 
 }

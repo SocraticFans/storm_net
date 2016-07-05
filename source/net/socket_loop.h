@@ -44,6 +44,8 @@ public:
 	int32_t connect(SocketHandler* h, const string& ip, int32_t port);
 	int32_t listen(SocketHandler* h, const string& ip, int32_t port, int32_t backlog = 1024);
 	void send(int32_t id, const string& data);
+	void send(int32_t id, const char* data, uint32_t len);
+	void send(int32_t id, IoBuffer* buffer, bool copy = true);
 	void close(int id, uint32_t closeType = CloseType_Self);
 	void terminate();
 

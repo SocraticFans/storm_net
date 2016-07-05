@@ -247,7 +247,7 @@ void SocketLoop::handleWrite(Socket* s) {
 				continue;
 			} else {
 				needClose = true;
-				//STORM_INFO << "send error fd: " << s->fd << ", error: " << strerror(errno);
+				STORM_INFO << "send error fd: " << s->fd << ", error: " << strerror(errno);
 				break;
 			}
 		} else {
@@ -419,7 +419,7 @@ void SocketLoop::sendSocket(int32_t id, IoBuffer* buffer) {
 			} else if (errno == EINTR) {
 				continue;
 			} else {
-				//STORM_INFO << "send error fd: " << s->fd << ", error: " << strerror(errno);
+				STORM_INFO << "send error fd: " << s->fd << ", error: " << strerror(errno);
 				needClose = true;
 				break;
 			}
@@ -471,6 +471,7 @@ int32_t SocketLoop::connect(SocketHandler* handler, const string& ip, int32_t po
 	s->ip = ip;
 	s->port = port;
 	s->handler = handler;
+	s->status = SocketStatus_Connecting;
 
 	SocketCmd cmd;
 	cmd.type = SocketCmd_Connect;
@@ -513,6 +514,26 @@ void SocketLoop::send(int32_t id, const string& data) {
 	cmd.type = SocketCmd_Send;
 	cmd.id = id;
 	cmd.buffer = new IoBuffer(data);
+	pushCmd(cmd);
+}
+
+void SocketLoop::send(int32_t id, const char* data, uint32_t len) {
+	SocketCmd cmd;
+	cmd.type = SocketCmd_Send;
+	cmd.id = id;
+	cmd.buffer = new IoBuffer(data, len);
+	pushCmd(cmd);
+}
+
+void SocketLoop::send(int32_t id, IoBuffer* buffer, bool copy) {
+	SocketCmd cmd;
+	cmd.type = SocketCmd_Send;
+	cmd.id = id;
+	if (copy) {
+		cmd.buffer = new IoBuffer(*buffer);
+	} else {
+		cmd.buffer = buffer;
+	}
 	pushCmd(cmd);
 }
 

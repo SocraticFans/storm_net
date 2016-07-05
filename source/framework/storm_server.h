@@ -9,10 +9,12 @@
 #include "util/util_config.h"
 #include "util/util_option.h"
 #include "util/util_string.h"
+#include "util/util_timer.h"
 
 #include "server_config.h"
 #include "storm_service.h"
 #include "storm_listener.h"
+#include "storm_proxy_manager.h"
 
 namespace storm {
 
@@ -30,6 +32,8 @@ public:
 	void setServerType(ServerType type);
 
 	void status(std::string& out);
+
+	bool isTerminate();
 
 protected:
 	// 主循环
@@ -100,10 +104,13 @@ protected:
 	ClientConfig 	m_clientCfg;			// 客户端配置
 
 	SocketLoop*		m_netLoop;				// 网络loop实例
+	ServiceProxyManager* m_proxyMgr;			// proxy管理器
+
 	ListenerMapType m_listeners;			// 所有的监听器
 	ServiceVector	m_inLoopServices;		// 在loop中处理逻辑的Service
 	ServiceVector	m_notInLoopServices;	// 不在loop中处理逻辑的Service
 	std::thread 	m_netThread;			// 网络线程
+	Timer			m_netTimer;				// 网络线程里的定时器
 };
 
 template <class T>

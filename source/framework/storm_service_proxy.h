@@ -1,6 +1,8 @@
 #ifndef _STORM_SERVICE_PROXY_H_
 #define _STORM_SERVICE_PROXY_H_
 
+#include <atomic>
+
 #include "net/socket_loop.h"
 #include "net/socket_handler.h"
 
@@ -11,78 +13,102 @@
 
 #include "connection.h"
 #include "server_config.h"
+#include "storm_request.h"
 
 namespace storm {
-class StormProxyManager;
+class ServiceProxy;
+class ProxyManager;
 
-class StormServiceProxy {
+class ServiceProxyCallBack {
 public:
-	StormServiceProxy(SocketLoop* loop) {
+	virtual ~ServiceProxyCallBack() {}
+	virtual void dispatch(RequestMessage* message) = 0;
+};
+
+class ProxyEndPoint : public SocketHandler {
+public:
+	friend class ServiceProxy;
+
+	ProxyEndPoint(SocketLoop* loop, ServiceProxy* proxy)
+	:SocketHandler(loop)
+	,m_proxy(proxy)
+	,m_connId(-1)
+	,m_connected(false) {
+		m_buffer = new IoBuffer(4096);
 	}
-	virtual ~StormServiceProxy() {}
+
+	virtual ~ProxyEndPoint() {
+		delete m_buffer;
+	}
+
+	virtual void onConnect(Socket* s);
+	virtual void onClose(Socket* s, uint32_t closeType);
+	virtual void onPacket(Socket* s, const char* data, uint32_t len);
+
+	void send(const char* data, uint32_t len);
+	void send(const std::string& data);
+	
+
+private:
+	ServiceProxy* m_proxy;			// Service代理
+	Mutex m_mutex;						// 锁
+	int32_t m_connId;					// 连接id
+	bool m_connected;					// 是否已经连接
+	std::string m_ip;					// ip
+	uint32_t m_port;					// port
+	IoBuffer* m_buffer;					// 发送缓冲
+};
+
+class ServiceProxy {
+public:
+	ServiceProxy(SocketLoop* loop)
+	:m_loop(loop)
+	,m_inLoop(false)
+	,m_sequeue(0) {
+
+	}
+	virtual ~ServiceProxy() {}
+
+	bool parseFromString(const std::string& config);
 
 	// 继承类实现一个hash方法，return this
-	void hash(uint64_t code);
+	void hash(int64_t code);
+
+	void onClose(ProxyEndPoint* ed, uint32_t closeType);
+	void onPacket(ProxyEndPoint* ed, const char* data, uint32_t len);
+
+	static RequestMessage* newRequest(InvokeType type, ServiceProxyCallBack* cb = NULL);
+
+	// 调用入口
+	// 把message发送出去
+	void doInvoke(RequestMessage* message);
+
+	// 调用结束的处理
+	void finishInvoke(RequestMessage* message);
 
 private:
-};
+	// 选择一个端点
+	ProxyEndPoint* selectEndPoint();
 
-/*
-class ServiceProxy : public SocketProxy {
-public:
-	typedef std::shared_ptr<ServiceProxy> ptr;
-	ServiceProxy(SocketConnector* connector);
-	bool parseFromString(const string& config);
-	virtual ~ServiceProxy(){}
+	// 保存请求
+	void saveMessage(uint32_t requestId, RequestMessage* message);
 
-	virtual void onConnect(uint32_t id) {
-		STORM_DEBUG << "onConnect " << id;
-	}
-	virtual void onData(uint32_t id, IOBuffer::ptr buffer);
-	virtual void onClose(uint32_t id, uint32_t closeType);
-	virtual void doRequest(RecvPacket::ptr pack);
-	virtual void doClose(RecvPacket::ptr pack);
-
-	void terminate();
-
-	void doInvoke(ReqMessage* req);
-	void finishInvoke(ReqMessage* req);
-
-	void doTimeOut();
-	void doTimeClose(uint32_t id);
-
-	uint32_t selectEndPoint(uint32_t requestId);
-	void updateEndPoints();
+	// 获得并从map删除请求
+	RequestMessage* getAndDelReqMessage(uint32_t requestId);
 
 private:
-	void setReqMessage(uint32_t requestId, ReqMessage* mess);
-	ReqMessage* getAndDelReqMessage(uint32_t requestId);
+	typedef std::vector<ProxyEndPoint*> EndPointVec;
+	typedef std::map<uint32_t, RequestMessage*> MessageMap;
 
-	void setEndPoints(vector<uint32_t>& eps);
-	void delEndPoint(uint32_t id);
-
-protected:
-	SocketConnector* m_connector;
-	bool m_needLocator;
-	string m_objName;
-
-	ProtocolType	m_protocol;
-
-	Mutex m_epMutex;
-	vector<uint32_t> m_endPoints;
-
-	//key: service name, ip, port
-	map<string, uint32_t> m_clients;
-
-	//发出去的消息
-	map<uint32_t, ReqMessage*> m_reqMessages;
-	Mutex m_messMutex;
-	atomic_uint m_sequeue;
-
-	TimeList<uint32_t, uint32_t> m_timeout;
+	SocketLoop* m_loop;
+	bool m_inLoop;									// 消息是否在网络loop线程处理
+	bool m_needLocator;								// 是否需要定位
+	EndPointVec m_endPoints;						// 所有的端点
+	atomic_uint m_sequeue;							// 请求sequeue
+	Mutex m_epMutex;								// endpoint锁
+	Mutex m_messMutex;								// 请求消息锁
+	MessageMap m_reqMessages; 						// 发出去的消息
 };
-*/
-
 }
 
 #endif

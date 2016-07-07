@@ -78,6 +78,7 @@ public:
 	void onPacket(ProxyEndPoint* ed, const char* data, uint32_t len);
 
 	static RequestMessage* newRequest(InvokeType type, ServiceProxyCallBack* cb = NULL);
+	static void delRequest(RequestMessage* message);
 
 	// 调用入口
 	// 把message发送出去

@@ -177,6 +177,18 @@ RequestMessage* ServiceProxy::newRequest(InvokeType type, ServiceProxyCallBack* 
 	return message;
 }
 
+void ServiceProxy::delRequest(RequestMessage* message) {
+	if (message->cb) {
+		delete message->cb;
+		message->cb = NULL;
+	}
+	if (message->resp) {
+		delete message->resp;
+		message->resp = NULL;
+	}
+	delete message;
+}
+
 void ServiceProxy::doInvoke(RequestMessage* message) {
 	//异步请求message可能被删掉了,所以这里把invokeType复制
 	uint32_t invokeType = message->invokeType;

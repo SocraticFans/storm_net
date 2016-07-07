@@ -49,7 +49,6 @@ public:
 	void close(int id, uint32_t closeType = CloseType_Self);
 	void terminate();
 
-	void run();
 	void runOnce(int32_t ms);
 
 	void setCmdInLoop(bool inLoop) {

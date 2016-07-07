@@ -294,14 +294,6 @@ void SocketLoop::runOnce(int32_t ms) {
 	}
 }
 
-void SocketLoop::run() {
-	m_running = true;
-	while (m_running) {
-		runOnce(2);
-	}
-	destroy();
-}
-
 void SocketLoop::handleCmd() {
 	uint64_t d = 0;
 	::read(m_notifier->fd, &d, sizeof(d));
@@ -448,16 +440,6 @@ void SocketLoop::closeSocket(int id, uint32_t closeType) {
 }
 
 inline void SocketLoop::pushCmd(const SocketCmd& cmd) {
-	// 如果是单线程server直接处理socket请求
-	// 但是关闭请求还是放到下一次loop,
-	// 因为单线程直接关闭，onClose回调中会删除一些东西, 删除的东西往往跟调用close的容器是同一个
-	// 会带来迭代器失效等问题
-
-	if (m_inLoop && cmd.type != SocketCmd_Close) {
-		handleOneCmd(cmd);
-		return;
-	}
-
 	m_queue.push_back(cmd);
 	uint64_t d = 1;
 	::write(m_notifier->fd, &d, sizeof(d));

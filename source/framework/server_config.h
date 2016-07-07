@@ -7,13 +7,14 @@
 
 namespace storm {
 
-enum ServerType {
-	ServerType_SingleThread = 1,	// 单线程Server 网络线程、网络包处理、用户loop都在一个线程里
-	ServerType_MultiThread = 2,		// 多线程Server 网络loop一个线程，用户loop一个线程，网络逻辑可以放在用户loop线程，也可以独立线程(可以配置多个)
+enum RunThread {
+	RunThread_Main = 1,				// 运行在主线程
+	RunThread_Net = 2,				// 运行在网络线程
+	RunThread_Extra = 3,			// 运行在额外线程
 };
 
 struct ServiceConfig {
-	bool inLoop; 					// 在多线程Server模式，配置网络处理是否在loop线程，单线程Server模式无意义
+	uint32_t runThread;				// 运行线程
 	string name;					// 服务名字
 	string host;					// 监听ip
 	uint32_t port;					// 监听port
@@ -26,7 +27,6 @@ struct ServiceConfig {
 };
 
 struct ServerConfig {
-	uint32_t type;					// server类型，查看ServerType枚举
 	std::string appName;			// 应用名称
 	std::string serverName;			// 服务名称
 	std::string pidFileName;		// pid文件名称

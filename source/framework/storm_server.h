@@ -26,18 +26,22 @@ public:
 	int run(int argc, char** argv);
 
 	virtual bool init() = 0;
-	virtual void destroy() = 0;
-	virtual void loop() = 0;
 
-	void setServerType(ServerType type);
+	virtual void mainLoop() {}				// 主循环
+	virtual void mainLoopDestory() {}		// 主循环退出
+
+	virtual void netLoop() {};				// 网络循环
+	virtual void netLoopDestory() {};		// 网络循环退出
 
 	void status(std::string& out);
 
 	bool isTerminate();
 
+	void setLoopInterval(uint64_t us);
+
 protected:
-	// 主循环
-	void mainLoop();
+	// 主循环入口
+	void mainEntry();
 
 	// 启动日志
 	void startLog();
@@ -57,11 +61,8 @@ protected:
 	// 结束网络线程
 	void terminateNetThread();
 
-	// 网络loop
-	void netLoop();
-
-	// 结束
-	void terminate();
+	// 网络Entry
+	void netEntry();
 
 	// 网络线程定时
 	void updateNet();
@@ -72,7 +73,7 @@ protected:
 	void parseConfig(int argc, char** argv);
 	void parseServerConfig(const CConfig& cfg);
 	void parseClientConfig(const CConfig& cfg);
-	ServerType parserServerType(const std::string& str);
+	uint32_t parserRunThread(const std::string& str);
 	void displayServer();
 
 	void savePidFile();
@@ -99,6 +100,7 @@ protected:
 	typedef std::map<std::string, StormListener*> ListenerMapType;
 	typedef std::vector<StormService*> ServiceVector;
 
+	uint64_t m_loopInterval;				// loop间隔
 	COption 		m_option;				// 命令行选项
 	ServerConfig 	m_serverCfg;			// 服务端配置
 	ClientConfig 	m_clientCfg;			// 客户端配置
@@ -107,8 +109,8 @@ protected:
 	ServiceProxyManager* m_proxyMgr;			// proxy管理器
 
 	ListenerMapType m_listeners;			// 所有的监听器
-	ServiceVector	m_inLoopServices;		// 在loop中处理逻辑的Service
-	ServiceVector	m_notInLoopServices;	// 不在loop中处理逻辑的Service
+	ServiceVector	m_mainThreadServices;	// 逻辑线程中运行的Service
+	ServiceVector	m_extraThreadServices;	// 额外的线程运行的Service
 	std::thread 	m_netThread;			// 网络线程
 	Timer			m_netTimer;				// 网络线程里的定时器
 };
@@ -130,22 +132,26 @@ bool StormServer::addService(const ServiceConfig& cfg, SocketHandler::PacketPars
 	}
 
 	int32_t num = 1;
-	if (m_serverCfg.type == ServerType_MultiThread && !cfg.inLoop) {
+	if (cfg.runThread == RunThread_Extra) {
 		num = cfg.threadNum;
 	}
 	for (int32_t i = 0; i < num; ++i) {
 		// 创建服务对象
 		T* service = new T(m_netLoop, it->second);
 
-		if (m_serverCfg.type == ServerType_SingleThread) {
-			m_inLoopServices.push_back(service);
-		} else if (m_serverCfg.type == ServerType_MultiThread) {
-			if (cfg.inLoop) {
-				m_inLoopServices.push_back(service);
-			} else {
-				m_notInLoopServices.push_back(service);
-			}
+		if (cfg.runThread == RunThread_Main) {
+			m_mainThreadServices.push_back(service);
+		} else if (cfg.runThread == RunThread_Extra) {
+			m_extraThreadServices.push_back(service);
 		}
+	}
+
+	if (cfg.runThread == RunThread_Net) {
+		m_netLoop->setCmdInLoop(true);
+		it->second->setInLoop(true);
+	} else {
+		m_netLoop->setCmdInLoop(false);
+		it->second->setInLoop(false);
 	}
 
 	// 设置分包解析器

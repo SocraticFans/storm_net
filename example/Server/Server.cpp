@@ -21,8 +21,8 @@ using namespace storm;
 class Server : public StormServer {
 public:
 	virtual bool init();
-	virtual void destroy() {}
-	virtual void loop(){}
+	virtual void mainLoop() {};
+	virtual void mainLoopDestory() {};
 };
 
 // 考虑下在init里调用其他服务，尤其是同步调用问题

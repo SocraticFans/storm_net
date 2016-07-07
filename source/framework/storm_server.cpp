@@ -23,7 +23,8 @@ const static uint32_t kEmptyTimeOut = 10;
 const static uint32_t kDefaultKeepAliveTime = 60;
 const static uint32_t kDefaultTimeOut = 60;
 
-static bool g_running = false;
+static volatile bool g_running = false;
+static volatile bool g_netRunning = false;
 
 static void sighandler(int /*sig*/) {
 	g_running = false;
@@ -41,13 +42,17 @@ bool StormServer::isTerminate() {
 	return !g_running;
 }
 
+void StormServer::setLoopInterval(uint64_t us) {
+	m_loopInterval = us;
+}
+
 int StormServer::run(int argc, char** argv) {
 	g_stormServer = this;
 	m_netTimer.addTimer(500, std::bind(&StormServer::updateNet, this), true);
 	try {
 		parseConfig(argc, argv);
+		// 非daemon模式，日志同时输出到屏幕,
 		if (!m_option.isDaemon()) {
-			// 非daemon模式，日志同时输出到屏幕,
 			LogManager::setLogStdOut(true);
 		}
 
@@ -71,26 +76,30 @@ int StormServer::run(int argc, char** argv) {
 
 		displayServer();
 
+		// 网络线程
+		startNetThread();
+
 		// 用户初始化
 		if (!init()) {
 			redOutput("start server failed");
 			return -1;
 		}
+		g_netRunning = true;
+
 		// 异步日志模式
 		if (!m_serverCfg.logSync) {
 			LogManager::setLogSync(false);
 			LogManager::startAsyncThread();
 		}
-		// 网络线程
-		startNetThread();
+
 		// 启动监听
 		if (!startListener()) {
 			redOutput("start service listen failed");
 			return -1;
 		}
+
 		// 开始服务
 		startService();
-
 
 		// 到这一步就保证启动成功了
 		greenOutput("start server success");
@@ -101,12 +110,14 @@ int StormServer::run(int argc, char** argv) {
 			daemon();
 		}
 
-		// 主循环
-		mainLoop();
-		// 用户退出
-		destroy();
+		// 主循环入口
+		mainEntry();
+
 		// 结束
-		terminate();
+		terminateService();
+
+		// 网络线程结束
+		terminateNetThread();
 
 		STORM_INFO << "Server Normal Exit";
 		LogManager::finish();
@@ -119,38 +130,32 @@ int StormServer::run(int argc, char** argv) {
 	return 0;
 }
 
-void StormServer::mainLoop() {
+void StormServer::mainEntry() {
 	g_running = true;
-	uint32_t type = m_serverCfg.type;
-	if (type == ServerType_SingleThread) {
-		while (g_running) {
-			loop();
-			m_netLoop->runOnce(2);
-			m_netTimer.update(UtilTime::getNowMS());
+	while (g_running) {
+		mainLoop();
+		for (ServiceVector::iterator it = m_mainThreadServices.begin(); it != m_mainThreadServices.end(); ++it) {
+			(*it)->update(0);
 		}
-	} else if (type == ServerType_MultiThread) {
-		while (g_running) {
-			loop();
-			for (ServiceVector::iterator it = m_inLoopServices.begin(); it != m_inLoopServices.end(); ++it) {
-				(*it)->update(0);
-			}
-			usleep(2000);
-		}
+		usleep(m_loopInterval);
 	}
+	// 主循环退出
+	mainLoopDestory();
 }
 
 StormServer::StormServer()
-: m_netLoop(NULL) {
+:m_loopInterval(2000)
+,m_netLoop(NULL) {
 	m_netLoop = new SocketLoop();
 	m_proxyMgr = new ServiceProxyManager(m_netLoop);
 }
 
 StormServer::~StormServer() {
 	delete m_netLoop;
-	for (ServiceVector::iterator it = m_inLoopServices.begin(); it != m_inLoopServices.end(); ++it) {
+	for (ServiceVector::iterator it = m_mainThreadServices.begin(); it != m_mainThreadServices.end(); ++it) {
 		delete *it;
 	}
-	for (ServiceVector::iterator it = m_notInLoopServices.begin(); it != m_notInLoopServices.end(); ++it) {
+	for (ServiceVector::iterator it = m_extraThreadServices.begin(); it != m_extraThreadServices.end(); ++it) {
 		delete *it;
 	}
 	for (ListenerMapType::iterator it = m_listeners.begin(); it != m_listeners.end(); ++it) {
@@ -168,30 +173,7 @@ void StormServer::startLog() {
 	LogManager::setRollLogInfo("", m_serverCfg.logNum, m_serverCfg.logSize);
 }
 
-void StormServer::setServerType(ServerType type) {
-	m_serverCfg.type = type;
-}
-
-void StormServer::terminate() {
-	terminateService();
-	terminateNetThread();
-}
-
 bool StormServer::startListener() {
-	bool netInloop = true;
-	if (m_serverCfg.type == ServerType_SingleThread) {
-		// 网络loop处理逻辑
-		netInloop = true;
-	} else if (m_serverCfg.type == ServerType_MultiThread) {
-		// 网络loop不处理逻辑
-		netInloop  = false;
-	}
-
-	m_netLoop->setCmdInLoop(netInloop);
-	for (ListenerMapType::iterator it = m_listeners.begin(); it != m_listeners.end(); ++it) {
-		it->second->setInLoop(netInloop);
-	}
-
 	for (ListenerMapType::iterator it = m_listeners.begin(); it != m_listeners.end(); ++it) {
 		if (it->second->startListen() < 0) {
 			return false;
@@ -202,44 +184,45 @@ bool StormServer::startListener() {
 }
 
 void StormServer::startService() {
-	for (ServiceVector::iterator it = m_inLoopServices.begin(); it != m_inLoopServices.end(); ++it) {
+	for (ServiceVector::iterator it = m_mainThreadServices.begin(); it != m_mainThreadServices.end(); ++it) {
 		(*it)->init();
 	}
 
-	for (ServiceVector::iterator it = m_notInLoopServices.begin(); it != m_notInLoopServices.end(); ++it) {
+	for (ServiceVector::iterator it = m_extraThreadServices.begin(); it != m_extraThreadServices.end(); ++it) {
 		(*it)->startThread();
 	}
 }
 
 void StormServer::terminateService() {
-	for (ServiceVector::iterator it = m_inLoopServices.begin(); it != m_inLoopServices.end(); ++it) {
+	for (ServiceVector::iterator it = m_mainThreadServices.begin(); it != m_mainThreadServices.end(); ++it) {
 		(*it)->destroy();
 	}
-	for (ServiceVector::iterator it = m_notInLoopServices.begin(); it != m_notInLoopServices.end(); ++it) {
+	for (ServiceVector::iterator it = m_extraThreadServices.begin(); it != m_extraThreadServices.end(); ++it) {
 		(*it)->terminateThread();
 	}
 }
 
 void StormServer::startNetThread() {
-	if (m_serverCfg.type != ServerType_MultiThread) {
-		return;
-	}
-	m_netThread = std::thread(&StormServer::netLoop, this);
+	m_netThread = std::thread(&StormServer::netEntry, this);
 }
 
 void StormServer::terminateNetThread() {
+	g_netRunning = false;
 	m_netLoop->terminate();
-	if (m_serverCfg.type != ServerType_MultiThread) {
-		return;
-	}
 	m_netThread.join();
 }
 
-void StormServer::netLoop() {
-	while (g_running) {
-		m_netLoop->runOnce(2);
+void StormServer::netEntry() {
+	while (!g_netRunning) {
+		m_netLoop->runOnce(1000);
 		m_netTimer.update(UtilTime::getNowMS());
 	}
+	while (g_netRunning) {
+		netLoop();	
+		m_netLoop->runOnce(1000);
+		m_netTimer.update(UtilTime::getNowMS());
+	}
+	netLoopDestory();
 }
 
 void StormServer::setPacketParser(const std::string& name, SocketHandler::PacketParser parser) {
@@ -267,16 +250,19 @@ void StormServer::parseConfig(int argc, char** argv) {
 	parseClientConfig(clientCfg);
 }
 
-ServerType StormServer::parserServerType(const std::string& str) {
+uint32_t StormServer::parserRunThread(const std::string& str) {
 	string s = UtilString::trim(str);
-	s = UtilString::toupper(s);
+	s = UtilString::tolower(s);
 
-	ServerType type = ServerType_MultiThread;
-	if (s == "SINGLE_THREAD") {
-		type = ServerType_SingleThread;
-	} else if (s == "MULTI_THREAD") {
-		type = ServerType_MultiThread;
+	uint32_t type = RunThread_Net;
+	if (s == "main_thread") {
+		type = RunThread_Main;
+	} else if (s == "extra_thread") {
+		type = RunThread_Extra;
+	} else if (s == "net_thread") {
+		type = RunThread_Net;
 	}
+
 	return type;
 }
 
@@ -284,9 +270,6 @@ void StormServer::parseServerConfig(const CConfig& cfg) {
 	m_serverCfg.appName = cfg.getCfg("app");
 	m_serverCfg.serverName = cfg.getCfg("server");
 	m_serverCfg.pidFileName = m_serverCfg.serverName + ".pid";
-	
-	string serverType = cfg.getCfg("type", "Multi_Thread");
-	m_serverCfg.type = parserServerType(serverType);
 
 	m_serverCfg.logNum = cfg.getCfg<uint32_t>("log_num", 10);
 	m_serverCfg.logSize = UtilString::parseHumanReadableSize(cfg.getCfg("log_size", "50M"));
@@ -304,8 +287,8 @@ void StormServer::parseServerConfig(const CConfig& cfg) {
 		}
 		ServiceConfig& service = allService[serviceName];
 		service.name = serviceName;
-		// TODO getCfg 模板特化一个bool参数
-		service.inLoop = serviceCfg.getCfg("inLoop", 1);
+		string runThread = serviceCfg.getCfg("run_thread", "net_thread");
+		service.runThread = parserRunThread(runThread);
 		service.host = serviceCfg.getCfg("host");
 		service.port = serviceCfg.getCfg<uint32_t>("port");
 		service.threadNum = serviceCfg.getCfg("thread", kDefaultThreadNum);
@@ -326,15 +309,14 @@ void StormServer::parseClientConfig(const CConfig& cfg) {
 void StormServer::displayServer() {
 	STORM_INFO << "\n" 
 			   << "\t AppName " << m_serverCfg.appName << "\n"
-		       << "\t ServerName " << m_serverCfg.serverName << "\n"
-			   << "\t Type " << m_serverCfg.type;
+		       << "\t ServerName " << m_serverCfg.serverName;
 
 	map<string, ServiceConfig>& allService = m_serverCfg.services;
 	for (map<string, ServiceConfig>::const_iterator it = allService.begin(); it != allService.end(); ++it) {
 		const ServiceConfig& cfg = it->second;
 		STORM_INFO << "\n"
 					<< "Service: " << cfg.name << "\n"
-					<< "\t InLoop: " << cfg.inLoop << "\n"
+					<< "\t RunThread: " << cfg.runThread << "\n"
 					<< "\t Host: " << cfg.host << "\n"
 					<< "\t Port: " << cfg.port << "\n"
 					<< "\t ThreadNum: " << cfg.threadNum << "\n"

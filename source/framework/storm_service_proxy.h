@@ -10,6 +10,7 @@
 #include "util/util_thread.h"
 #include "util/util_timelist.h"
 #include "util/util_singleton.h"
+#include "util/util_log.h"
 
 #include "connection.h"
 #include "server_config.h"
@@ -17,7 +18,7 @@
 
 namespace storm {
 class ServiceProxy;
-class ProxyManager;
+class ServiceProxyManager;
 
 class ServiceProxyCallBack {
 public:
@@ -50,7 +51,7 @@ public:
 	
 
 private:
-	ServiceProxy* m_proxy;			// Service代理
+	ServiceProxy* m_proxy;				// Service代理
 	Mutex m_mutex;						// 锁
 	int32_t m_connId;					// 连接id
 	bool m_connected;					// 是否已经连接
@@ -61,13 +62,17 @@ private:
 
 class ServiceProxy {
 public:
-	ServiceProxy(SocketLoop* loop)
-	:m_loop(loop)
+	ServiceProxy()
+	:m_loop(NULL)
+	,m_mgr(NULL)
 	,m_inLoop(false)
 	,m_sequeue(0) {
 
 	}
 	virtual ~ServiceProxy() {}
+
+	void setLoop(SocketLoop* loop) { m_loop = loop; }
+	void setManager(ServiceProxyManager* mgr) { m_mgr = mgr; }
 
 	bool parseFromString(const std::string& config);
 
@@ -101,7 +106,8 @@ private:
 	typedef std::vector<ProxyEndPoint*> EndPointVec;
 	typedef std::map<uint32_t, RequestMessage*> MessageMap;
 
-	SocketLoop* m_loop;
+	SocketLoop* m_loop;								// 网络循环
+	ServiceProxyManager* m_mgr;						// proxy管理器
 	bool m_inLoop;									// 消息是否在网络loop线程处理
 	bool m_needLocator;								// 是否需要定位
 	EndPointVec m_endPoints;						// 所有的端点
@@ -110,6 +116,31 @@ private:
 	Mutex m_messMutex;								// 请求消息锁
 	MessageMap m_reqMessages; 						// 发出去的消息
 };
+
+template <typename T>
+inline int32_t decodeResponse(RequestMessage* message, T& response) {
+	int32_t ret = 0;
+	do {
+		if (message->status != 0) {
+			ret = message->status;
+			break;
+		}
+		RpcResponse* resp = message->resp;
+		if (resp->ret() != 0) {
+			ret = resp->ret();
+			break;
+		}
+		if (!response.ParseFromString(resp->response())) {
+			ret = ResponseStatus_CoderError;
+			break;
+		}
+
+	} while (0);
+	if (ret) {
+		STORM_ERROR << "resp status: " << ret;
+	}
+	return ret;
+}
 }
 
 #endif

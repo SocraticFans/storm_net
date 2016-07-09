@@ -11,8 +11,8 @@ using namespace storm;
 class Client : public StormServer {
 public:
 	virtual bool init();
-	virtual void destroy() {}
-	virtual void loop();
+	virtual void mainLoop();
+	virtual void netLoop();
 };
 
 
@@ -26,16 +26,34 @@ bool Client::init() {
 }
 
 int64_t last = 0;
-void Client::loop() {
 
+void Client::mainLoop() {
 	EchoReq req; 
 	EchoAck ack;
 	while (!isTerminate()) {
-	req.set_msg("Hello");
-//		g_proxy->Echo(req, ack);
-	g_proxy->async_Echo(NULL, req);
+		req.set_msg("Hello");
+		int32_t ret = g_proxy->Echo(req, ack);
+		if (ret == 0) {
+			STORM_DEBUG << "ack: " << ack.Utf8DebugString();
+		}
+		//g_proxy->async_Echo(NULL, req);
+		sleep(1);
 	}
-	//sleep(1);
+}
+
+
+class CallBackEcho : public EchoServiceProxyCallBack {
+public:
+	virtual void callback_Echo(int32_t ret, const EchoAck& ack) {
+		STORM_DEBUG << "ret: " << ret << ", ack: " << ack.Utf8DebugString();
+	}
+};
+
+void Client::netLoop() {
+	EchoReq req; 
+	req.set_msg("Hello");
+	g_proxy->async_Echo(new CallBackEcho, req);
+	sleep(1);
 }
 
 

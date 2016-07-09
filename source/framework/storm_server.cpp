@@ -38,6 +38,13 @@ void redOutput(const string& content) {
 	cout << "\033[1;31m" << content <<  "\033[0m" << endl;
 }
 
+StormServer::StormServer()
+:m_loopInterval(2000)
+,m_netLoop(NULL) {
+	m_netLoop = new SocketLoop();
+	m_proxyMgr = new ServiceProxyManager(m_netLoop);
+}
+
 bool StormServer::isTerminate() {
 	return !g_running;
 }
@@ -143,13 +150,6 @@ void StormServer::mainEntry() {
 	mainLoopDestory();
 }
 
-StormServer::StormServer()
-:m_loopInterval(2000)
-,m_netLoop(NULL) {
-	m_netLoop = new SocketLoop();
-	m_proxyMgr = new ServiceProxyManager(m_netLoop);
-}
-
 StormServer::~StormServer() {
 	delete m_netLoop;
 	for (ServiceVector::iterator it = m_mainThreadServices.begin(); it != m_mainThreadServices.end(); ++it) {
@@ -214,15 +214,18 @@ void StormServer::terminateNetThread() {
 
 void StormServer::netEntry() {
 	while (!g_netRunning) {
-		m_netLoop->runOnce(1000);
+		m_netLoop->runOnce(200);
 		m_netTimer.update(UtilTime::getNowMS());
+		m_netLoop->runOnce(0);
 	}
 	while (g_netRunning) {
+		m_netLoop->runOnce(200);
 		netLoop();	
-		m_netLoop->runOnce(1000);
 		m_netTimer.update(UtilTime::getNowMS());
+		m_netLoop->runOnce(0);
 	}
 	netLoopDestory();
+	m_netLoop->runOnce(0);
 }
 
 void StormServer::setPacketParser(const std::string& name, SocketHandler::PacketParser parser) {

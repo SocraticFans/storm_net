@@ -7,15 +7,26 @@
 #include "echo.pb.h"
 
 using namespace storm;
+
+class EchoServiceProxyCallBack : public ServiceProxyCallBack {
+public:
+	virtual ~EchoServiceProxyCallBack() {}
+
+	virtual void dispatch(RequestMessage* message);
+
+	virtual void callback_Echo(int32_t ret, const EchoAck& ack) {
+		throw std::runtime_error("no implement callback_Echo");
+	}
+};
+
 class EchoServiceProxy : public storm::ServiceProxy {
 public:
-	EchoServiceProxy(SocketLoop* loop)
-		:ServiceProxy(loop) {}
+	EchoServiceProxy() {}
 
 	virtual ~EchoServiceProxy(){}
 
 	int Echo(const EchoReq& req, EchoAck& ack);
-	void async_Echo(ServiceProxyCallBack* cb, const EchoReq& req);
+	void async_Echo(EchoServiceProxyCallBack* cb, const EchoReq& req);
 };
 
 #endif

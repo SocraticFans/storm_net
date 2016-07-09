@@ -17,6 +17,10 @@ public:
 
 	~ServiceProxyManager();
 
+	void pushMessage(RequestMessage* message) {
+		m_messages.push_back(message);
+	}
+
 
 	// 获得一个service代理
 	template <typename T>
@@ -26,7 +30,9 @@ public:
 		if (it != m_proxys.end()) {
 			return dynamic_cast<T*>(it->second);
 		}
-		T* proxy = new T(m_loop);
+		T* proxy = new T();
+		proxy->setLoop(m_loop);
+		proxy->setManager(this);
 		if (proxy->parseFromString(serviceName) == false) {
 			delete proxy;
 			STORM_ERROR << "error! string: " << serviceName;
@@ -40,6 +46,7 @@ private:
 	SocketLoop* m_loop;
 	Mutex m_mutex;
 	ProxyMap m_proxys;
+	LockQueue<RequestMessage*> m_messages;		// 异步消息回调队列
 };
 
 }

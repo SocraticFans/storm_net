@@ -1,4 +1,5 @@
 #include "storm_service_proxy.h"
+#include "storm_proxy_manager.h"
 
 #include <vector>
 
@@ -15,6 +16,7 @@ struct ProxyThreadData : public ThreadSingleton<ProxyThreadData> {
 };
 
 void ProxyEndPoint::onConnect(Socket* s) {
+	ScopeMutex<Mutex> lock(m_mutex);
 	m_connId = s->id;
 	m_connected = true;
 	if (m_buffer->getSize()) {
@@ -25,13 +27,18 @@ void ProxyEndPoint::onConnect(Socket* s) {
 
 // onClose 不加锁了，单线程模式下send中可能连接断开，调到onClose造成死锁
 void ProxyEndPoint::onClose(Socket* s, uint32_t closeType) {
+	ScopeMutex<Mutex> lock(m_mutex);
 	if (m_connId != s->id) {
 		return ;
 	}
+	lock.unlock();
 
 	m_proxy->onClose(this, closeType);
+
+	lock.lock();
 	m_connId = -1;
 	m_connected = false;
+	lock.unlock();
 }
 
 void ProxyEndPoint::onPacket(Socket* s, const char* data, uint32_t len) {
@@ -39,6 +46,7 @@ void ProxyEndPoint::onPacket(Socket* s, const char* data, uint32_t len) {
 }
 
 void ProxyEndPoint::send(const char* data, uint32_t len) {
+	ScopeMutex<Mutex> lock(m_mutex);
 	if (m_connected) {
 		// 已经连接, 直接发送
 		m_loop->send(m_connId, data, len);
@@ -60,6 +68,7 @@ void ServiceProxy::onClose(ProxyEndPoint* ep, uint32_t closeType) {
 	STORM_INFO << "onClose! id: " << ep->m_connId << ", closeType: " << etos((SocketCloseType)closeType);
 
 	if (closeType == CloseType_ConnectFail) {
+		// 非指定ip访问的，移到非活跃ep里面
 		//delEndPoint(pack->id);
 	}
 
@@ -173,6 +182,7 @@ RequestMessage* ServiceProxy::newRequest(InvokeType type, ServiceProxyCallBack* 
 	}
 	message->invokeType = type;
 	message->req.set_invoke_type(type);
+	message->threadId = getTid();
 
 	return message;
 }
@@ -233,8 +243,11 @@ void ServiceProxy::finishInvoke(RequestMessage* message) {
 		//STORM_DEBUG << "finishInvoke";
 		return;
 	} else if (message->invokeType == InvokeType_Async) {
-		// TODO
-		message->cb->dispatch(message);
+		if (getTid() == message->threadId) {
+			message->cb->dispatch(message);
+		} else {
+			m_mgr->pushMessage(message);
+		}
 	}
 }
 

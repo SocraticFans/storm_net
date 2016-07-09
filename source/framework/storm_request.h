@@ -16,12 +16,12 @@ enum InvokeType {
 
 // 响应状态
 enum ResponseStatus {
-	ResponseStatus_Ok = 0,			// 调用成功
-	ResponseStatus_TimeOut = 1,		// 调用超时
-	ResponseStatus_NetError = 2,	// 网络出错
-	ResponseStatus_CoderError = 3,	// 编解码出错
-	ResponseStatus_NoProtoId = 4,	// 协议出错
-	ResponseStatus_Error = 5,		// 未知错误
+	ResponseStatus_Ok = 0,				// 调用成功
+	ResponseStatus_TimeOut = 30001,		// 调用超时
+	ResponseStatus_NetError = 30002,	// 网络出错
+	ResponseStatus_CoderError = 30003,	// 编解码出错
+	ResponseStatus_NoProtoId = 30004,	// 协议出错
+	ResponseStatus_Error = 30005,		// 未知错误
 };
 
 class ServiceProxyCallBack;
@@ -33,7 +33,8 @@ struct RequestMessage {
 	,status(ResponseStatus_TimeOut)
 	,resp(NULL)
 	,back(false)
-	,cb(NULL) {
+	,cb(NULL)
+	,threadId(0) {
 
 	}
 
@@ -46,7 +47,8 @@ struct RequestMessage {
 
 	bool back;					// 是否已经回复
 	ServiceProxyCallBack* cb;	// 异步回调
-	Notifier notifier;		// 同步唤醒器
+	Notifier notifier;			// 同步唤醒器
+	uint32_t threadId;			// 发起请求的线程id
 };
 
 }

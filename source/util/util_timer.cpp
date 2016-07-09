@@ -49,7 +49,7 @@ void Timer::update(uint64_t ms) {
 	std::vector<std::pair<uint64_t, TimerNode*> > newNodes;
 	for (TimerNodeMap::iterator it = m_nodes.begin(); it != m_nodes.end(); ) {
 		TimerNode* node = it->second;
-		if (ms > node->expire) {
+		if (ms < node->expire) {
 			break;
 		}
 		node->cb();

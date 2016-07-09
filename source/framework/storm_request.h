@@ -29,16 +29,19 @@ class ProxyEndPoint;
 struct RequestMessage {
 	RequestMessage()
 	:invokeType(InvokeType_Sync)
+	,requestId(0)
 	,ep(NULL)
 	,status(ResponseStatus_TimeOut)
 	,resp(NULL)
 	,back(false)
 	,cb(NULL)
-	,threadId(0) {
+	,threadId(0)
+	,broadcast(false) {
 
 	}
 
 	uint32_t invokeType;
+	uint32_t requestId;
 	ProxyEndPoint* ep;
 	ResponseStatus status;
 
@@ -49,6 +52,7 @@ struct RequestMessage {
 	ServiceProxyCallBack* cb;	// 异步回调
 	Notifier notifier;			// 同步唤醒器
 	uint32_t threadId;			// 发起请求的线程id
+	bool broadcast;
 };
 
 }

@@ -1,18 +1,15 @@
 #ifndef TEST_ECHO_SERVICE_H
 #define TEST_ECHO_SERVICE_H
 
-#include "framework/storm_service.h"
-
-#include "echo.pb.h"
+#include "echo.h"
 
 using namespace storm;
 
-class EchoService : public storm::StormService {
+class EchoServiceImp : public EchoService {
 public:
-	EchoService(SocketLoop* loop, StormListener* listener);
-	virtual ~EchoService() {}
-
-	virtual int onRpcRequest(const Connection& conn, const RpcRequest& req, RpcResponse& resp);
+	EchoServiceImp(SocketLoop* loop, StormListener* listener)
+		:EchoService(loop, listener) {}
+	virtual ~EchoServiceImp() {}
 
 	virtual void Echo(const Connection& conn, const EchoReq& req, EchoAck& ack);
 };

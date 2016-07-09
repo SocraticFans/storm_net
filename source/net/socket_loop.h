@@ -2,10 +2,13 @@
 #define SOCKET_LOOP_H
 
 #include <vector>
+#include <sstream>
+
 #include "socket_define.h"
 #include "socket_poller.h"
 #include "util/util_thread.h"
 #include "util/util_misc.h"
+#include "util/util_timelist.h"
 
 using namespace std;
 namespace storm {
@@ -24,6 +27,8 @@ public:
 	inline void send(const string& data);
 	inline void close(uint32_t closeType = CloseType_Self);
 
+	friend std::ostream& operator << (std::ostream& os, const Socket& s);
+
 public:
 	int32_t id;
 	int32_t fd;
@@ -36,6 +41,8 @@ public:
 	string ip;
 	int32_t port;
 };
+
+std::ostream& operator << (std::ostream& os, const Socket& s);
 
 class SocketLoop {
 public:
@@ -79,6 +86,8 @@ private:
 	void sendSocket(int32_t id, IoBuffer* buffer);
 	void closeSocket(int32_t id, uint32_t closeType);
 
+	void doConnTimeClose(uint32_t id);
+
 private:
 	static const uint32_t MAX_EVENT = 1024;
 	static const uint32_t MAX_INFO = 128;
@@ -94,6 +103,7 @@ private:
 	SocketEvent m_event[MAX_EVENT];		// 事件
     char m_buffer[MAX_INFO];			// 存ip用的临时buffer
 	ObjectPool<IoBuffer> m_bufferPool;	// 读缓存池
+	TimeList<uint32_t, uint32_t> m_connTimeout;	// 连接超时队列
 };
 
 inline void Socket::send(const string& data) {

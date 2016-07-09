@@ -29,7 +29,7 @@ public:
 bool Server::init() {
 //	addService<StormService>("TestService", PacketProtocolLine::decode);
 	addService<StormCmdService>("TestService");
-	addService<EchoService>("EchoService");
+	addService<EchoServiceImp>("EchoService");
 	return true;
 }
 

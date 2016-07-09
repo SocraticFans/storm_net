@@ -144,6 +144,7 @@ void StormServer::mainEntry() {
 		for (ServiceVector::iterator it = m_mainThreadServices.begin(); it != m_mainThreadServices.end(); ++it) {
 			(*it)->update(0);
 		}
+		m_proxyMgr->updateInMainLoop();
 		usleep(m_loopInterval);
 	}
 	// 主循环退出
@@ -217,12 +218,14 @@ void StormServer::netEntry() {
 		m_netLoop->runOnce(200);
 		m_netTimer.update(UtilTime::getNowMS());
 		m_netLoop->runOnce(0);
+		m_proxyMgr->updateInNetLoop();
 	}
 	while (g_netRunning) {
 		m_netLoop->runOnce(200);
 		netLoop();	
 		m_netTimer.update(UtilTime::getNowMS());
 		m_netLoop->runOnce(0);
+		m_proxyMgr->updateInNetLoop();
 	}
 	netLoopDestory();
 	m_netLoop->runOnce(0);

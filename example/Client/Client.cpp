@@ -3,8 +3,9 @@
 #include <unistd.h>
 #include "framework/storm_server.h"
 
-#include "EchoService.h"
 #include "util/util_time.h"
+#include "echo.h"
+
 
 using namespace storm;
 
@@ -27,21 +28,6 @@ bool Client::init() {
 
 int64_t last = 0;
 
-void Client::mainLoop() {
-	EchoReq req; 
-	EchoAck ack;
-	while (!isTerminate()) {
-		req.set_msg("Hello");
-		int32_t ret = g_proxy->Echo(req, ack);
-		if (ret == 0) {
-			STORM_DEBUG << "ack: " << ack.Utf8DebugString();
-		}
-		//g_proxy->async_Echo(NULL, req);
-		sleep(1);
-	}
-}
-
-
 class CallBackEcho : public EchoServiceProxyCallBack {
 public:
 	virtual void callback_Echo(int32_t ret, const EchoAck& ack) {
@@ -49,11 +35,25 @@ public:
 	}
 };
 
+void Client::mainLoop() {
+	EchoReq req; 
+	EchoAck ack;
+	//while (!isTerminate()) {
+		req.set_msg("Hello");
+		int32_t ret = g_proxy->Echo(req, ack);
+		if (ret == 0) {
+			STORM_DEBUG << "ack: " << ack.Utf8DebugString();
+		}
+		//g_proxy->async_Echo(new CallBackEcho, req);
+		sleep(1);
+	//}
+}
+
 void Client::netLoop() {
 	EchoReq req; 
 	req.set_msg("Hello");
-	g_proxy->async_Echo(new CallBackEcho, req);
-	sleep(1);
+	//g_proxy->async_Echo(new CallBackEcho, req);
+	//sleep(1);
 }
 
 

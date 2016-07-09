@@ -17,6 +17,9 @@ public:
 
 	~ServiceProxyManager();
 
+	void updateInMainLoop();
+	void updateInNetLoop();
+
 	void pushMessage(RequestMessage* message) {
 		m_messages.push_back(message);
 	}

@@ -17,7 +17,7 @@ struct ProxyThreadData : public ThreadSingleton<ProxyThreadData> {
 
 void ProxyEndPoint::onConnect(Socket* s) {
 	ScopeMutex<Mutex> lock(m_mutex);
-	m_connId = s->id;
+//	m_connId = s->id;
 	m_connected = true;
 	if (m_buffer->getSize()) {
 		m_loop->send(m_connId, m_buffer->getHead(), m_buffer->getSize());
@@ -25,20 +25,16 @@ void ProxyEndPoint::onConnect(Socket* s) {
 	}
 }
 
-// onClose 不加锁了，单线程模式下send中可能连接断开，调到onClose造成死锁
 void ProxyEndPoint::onClose(Socket* s, uint32_t closeType) {
 	ScopeMutex<Mutex> lock(m_mutex);
 	if (m_connId != s->id) {
 		return ;
 	}
-	lock.unlock();
-
-	m_proxy->onClose(this, closeType);
-
-	lock.lock();
 	m_connId = -1;
 	m_connected = false;
 	lock.unlock();
+
+	m_proxy->onClose(this, closeType);
 }
 
 void ProxyEndPoint::onPacket(Socket* s, const char* data, uint32_t len) {
@@ -64,12 +60,53 @@ void ProxyEndPoint::send(const std::string& data) {
 	send(data.c_str(), data.size());
 }
 
-void ServiceProxy::onClose(ProxyEndPoint* ep, uint32_t closeType) {
-	STORM_INFO << "onClose! id: " << ep->m_connId << ", closeType: " << etos((SocketCloseType)closeType);
+ServiceProxy::ServiceProxy()
+:m_loop(NULL)
+,m_mgr(NULL)
+,m_inLoop(false)
+,m_sequeue(0) {
+	m_timeout.setTimeout(100000);
+	m_timeout.setFunction(std::bind(&ServiceProxy::doReqTimeOut, this, std::placeholders::_1));
+}
 
-	if (closeType == CloseType_ConnectFail) {
+ServiceProxy::~ServiceProxy() {
+	for (auto it = m_activeEndPoints.begin(); it != m_activeEndPoints.end(); ++it) {
+		delete *it;
+	}
+	for (auto it = m_inactiveEndPoints.begin(); it != m_inactiveEndPoints.end(); ++it) {
+		delete *it;
+	}
+	for (auto it = m_reqMessages.begin(); it != m_reqMessages.end(); ++it) {
+		delete it->second;
+	}
+}
+
+void ServiceProxy::doTimeOut() {
+	m_timeout.timeout(UtilTime::getNowMS());
+}
+
+void ServiceProxy::doReqTimeOut(uint32_t requestId) {
+	ScopeMutex<Mutex> lock(m_messMutex);
+	MessageMap::iterator it = m_reqMessages.find(requestId);
+	if (it == m_reqMessages.end()) {
+		return ;
+	}
+	RequestMessage* message = it->second;
+	m_reqMessages.erase(it);
+	lock.unlock();
+
+	message->status = ResponseStatus_TimeOut;
+	finishInvoke(message);
+}
+
+void ServiceProxy::onClose(ProxyEndPoint* ep, uint32_t closeType) {
+	STORM_INFO << m_name << ":" << ep->m_ip << ":" << ep->m_port << ", closeType: " << etos((SocketCloseType)closeType);
+
+	if (closeType == CloseType_ConnectFail || closeType == CloseType_ConnTimeOut) {
 		// 非指定ip访问的，移到非活跃ep里面
-		//delEndPoint(pack->id);
+		if (m_needLocator) {
+			moveToInactive(ep);
+		}
 	}
 
 	std::vector<RequestMessage*> affectMsg;
@@ -79,7 +116,6 @@ void ServiceProxy::onClose(ProxyEndPoint* ep, uint32_t closeType) {
 			++it;
 			continue;
 		}
-		//m_timeout.del(it->first);
 		RequestMessage* message = it->second;
 		affectMsg.push_back(message);
 		m_reqMessages.erase(it++);
@@ -92,27 +128,29 @@ void ServiceProxy::onClose(ProxyEndPoint* ep, uint32_t closeType) {
 		message->status = ResponseStatus_Error;
 		if (closeType == CloseType_Timeout) {
 			message->status = ResponseStatus_TimeOut;
-		} else if (closeType == CloseType_ConnectFail) {
+		} else if (closeType == CloseType_ConnectFail || closeType == CloseType_ConnTimeOut) {
 			message->status = ResponseStatus_NetError;
 		}
 		finishInvoke(message);
+		m_timeout.del(message->requestId);
 	}
 }
 
 void ServiceProxy::onPacket(ProxyEndPoint* ep, const char* data, uint32_t len) {
 	RpcResponse* resp = new RpcResponse();
 	if (!resp->ParseFromArray(data, len)) {
-		STORM_ERROR << "parse response error";
+		STORM_ERROR << m_name << ", parse response error";
 		delete resp;
 		return;
 	}
 
 	RequestMessage* message = getAndDelReqMessage(resp->request_id());
 	if (message == NULL) {
-		STORM_ERROR << "error, unknown requestId";
+		STORM_ERROR << m_name << ", error, unknown requestId: " << resp->request_id();
 		delete resp;
 		return;
 	}
+	m_timeout.del(resp->request_id());
 
 	message->resp = resp;
 	message->status = ResponseStatus_Ok;
@@ -123,6 +161,7 @@ bool ServiceProxy::parseFromString(const string& config) {
 	string::size_type pos = config.find('@');
 	if (pos != string::npos) {
 		m_needLocator = false;	
+		m_name = config.substr(0, pos) + "Proxy";
 		vector<string> endpoints = UtilString::splitString(config.substr(pos + 1), ":");
 		for (uint32_t i = 0; i < endpoints.size(); ++i) {
 			string desc = endpoints[i];
@@ -159,10 +198,11 @@ bool ServiceProxy::parseFromString(const string& config) {
 			ProxyEndPoint* ep = new ProxyEndPoint(m_loop, this);
 			ep->m_ip = host;
 			ep->m_port = port;
-			m_endPoints.push_back(ep);
+			m_activeEndPoints.push_back(ep);
 		}
 	} else {
 		m_needLocator = true;
+		m_name = config + "Proxy";
 		//TODO 同步调用locator
 	}
 
@@ -173,12 +213,13 @@ void ServiceProxy::hash(int64_t code) {
 	ProxyThreadData::instance()->m_hashCode = code;
 }
 
-RequestMessage* ServiceProxy::newRequest(InvokeType type, ServiceProxyCallBack* cb) {
+RequestMessage* ServiceProxy::newRequest(InvokeType type, ServiceProxyCallBack* cb, bool broadcast) {
 	RequestMessage* message = new RequestMessage;
 
 	message->cb = cb;
 	if (type == InvokeType_Async && cb == NULL) {
 		type = InvokeType_OneWay;
+		message->broadcast = broadcast;
 	}
 	message->invokeType = type;
 	message->req.set_invoke_type(type);
@@ -204,26 +245,34 @@ void ServiceProxy::doInvoke(RequestMessage* message) {
 	uint32_t invokeType = message->invokeType;
 	uint32_t requestId = m_sequeue.fetch_add(1);
 	message->req.set_request_id(requestId);
+	message->requestId = requestId;
 	IoBuffer* buffer = PacketProtocolLen::encode(message->req);
 
 
-	ProxyEndPoint* ep = selectEndPoint();
-	if (ep == NULL) {
-		delete buffer;
-		STORM_ERROR << "no endpoint ";
-		message->status = ResponseStatus_NetError;
-		finishInvoke(message);
-		return;
+	if (invokeType == InvokeType_OneWay && message->broadcast) {
+		ScopeMutex<Mutex> lock(m_epMutex);
+		for (auto it = m_activeEndPoints.begin(); it != m_activeEndPoints.end(); ++it) {
+			(*it)->send(buffer->getHead(), buffer->getSize());
+		}
+	} else {
+		ProxyEndPoint* ep = selectEndPoint();
+		if (ep == NULL) {
+			delete buffer;
+			STORM_ERROR << m_name << ", no endpoint ";
+			message->status = ResponseStatus_NetError;
+			finishInvoke(message);
+			return;
+		}
+		message->ep = ep;
+		ep->send(buffer->getHead(), buffer->getSize());
 	}
-	message->ep = ep;
+	delete buffer;
 
 	// 不是单向调用的都保存请求
 	if (invokeType != InvokeType_OneWay) {
 		saveMessage(requestId, message);
+		m_timeout.add(requestId, UtilTime::getNowMS());
 	}
-
-	ep->send(buffer->getHead(), buffer->getSize());
-	delete buffer;
 
 	// 同步等待
 	if (invokeType == InvokeType_Sync) {
@@ -253,21 +302,20 @@ void ServiceProxy::finishInvoke(RequestMessage* message) {
 
 ProxyEndPoint* ServiceProxy::selectEndPoint() {
 	ScopeMutex<Mutex> lock(m_epMutex);
-	if (m_endPoints.empty()) {
+	if (m_activeEndPoints.empty()) {
 		return NULL;
 	}
 	int64_t code = ProxyThreadData::instance()->m_hashCode;
+	ProxyThreadData::instance()->m_hashCode = -1;
 	if (code != -1) {
-		return m_endPoints[code % m_endPoints.size()];
+		return m_activeEndPoints[code % m_activeEndPoints.size()];
 	}
-	return m_endPoints[m_sequeue % m_endPoints.size()];
+	return m_activeEndPoints[m_sequeue % m_activeEndPoints.size()];
 }
 
 void ServiceProxy::saveMessage(uint32_t requestId, RequestMessage* message) {
 	ScopeMutex<Mutex> lock(m_messMutex);
 	m_reqMessages[requestId] = message;
-//	uint32_t now = UtilTime::getNow();
-//	m_timeout.add(requestId, now);
 }
 
 RequestMessage* ServiceProxy::getAndDelReqMessage(uint32_t requestId) {
@@ -278,8 +326,25 @@ RequestMessage* ServiceProxy::getAndDelReqMessage(uint32_t requestId) {
 	}
 	RequestMessage* temp = it->second;
 	m_reqMessages.erase(it);
-	//m_timeout.del(requestId);
 	return temp;
+}
+
+void ServiceProxy::moveToInactive(ProxyEndPoint* ep) {
+	ScopeMutex<Mutex> lock(m_epMutex);
+	for (auto it = m_activeEndPoints.begin(); it != m_activeEndPoints.end(); ++it) {
+		if (*it == ep) {
+			m_activeEndPoints.erase(it);
+			break;
+		}
+	}
+	for (auto it = m_inactiveEndPoints.begin(); it != m_inactiveEndPoints.end(); ) {
+		if (*it == ep) {
+			it = m_activeEndPoints.erase(it);
+		} else {
+			++it;
+		}
+	}
+	m_activeEndPoints.push_back(ep);
 }
 
 }

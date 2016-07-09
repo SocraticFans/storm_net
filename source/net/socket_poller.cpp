@@ -41,8 +41,11 @@ void SocketPoller::addToWrite(uint32_t iFd, void* pUd, bool bEnable) {
 	epoll_ctl(m_iEpollFd, EPOLL_CTL_MOD, iFd, &stEv);
 }
 
-void SocketPoller::del(uint32_t iFd) {
-	epoll_ctl(m_iEpollFd, EPOLL_CTL_DEL, iFd, NULL);
+void SocketPoller::del(uint32_t fd) {
+	uint32_t& mask = m_fdEvent[fd];
+	if (mask == EP_NONE) return;
+	mask = EP_NONE;
+	epoll_ctl(m_iEpollFd, EPOLL_CTL_DEL, fd, NULL);
 }
 
 void SocketPoller::addEvent(uint32_t fd, uint32_t e, void* ud) {

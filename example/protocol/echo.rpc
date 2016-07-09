@@ -1,0 +1,6 @@
+#include "echo.proto"
+
+ 
+service EchoService {
+	Echo(EchoReq req, EchoAck ack) = 1;
+};

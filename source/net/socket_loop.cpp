@@ -22,6 +22,10 @@
 #include "socket_handler.h"
 
 namespace storm {
+std::ostream& operator << (std::ostream& os, const Socket& s) {
+	os << "id: " << s.id << ", fd: " << s.fd << ", " << s.ip << ":" << s.port;
+	return os;
+}
 
 SocketLoop::SocketLoop(uint32_t maxSocket, bool inLoop)
 	:m_running(false),
@@ -47,6 +51,10 @@ SocketLoop::SocketLoop(uint32_t maxSocket, bool inLoop)
 	m_notifier->status = SocketStatus_Listen;
 
 	m_poll.addToRead(fd, m_notifier);
+
+	// 连接超时检测队列
+	m_connTimeout.setTimeout(3);
+	m_connTimeout.setFunction(std::bind(&SocketLoop::doConnTimeClose, this, std::placeholders::_1));
 }
 
 void SocketLoop::destroy() {
@@ -89,6 +97,7 @@ void SocketLoop::forceClose(Socket* s, uint32_t closeType) {
 		return;
 	}
 
+	::close(s->fd);
 	// 回调
 	if (s->handler) {
 		s->handler->onClose(s, closeType);
@@ -107,7 +116,7 @@ void SocketLoop::forceClose(Socket* s, uint32_t closeType) {
 	}
 
 	m_poll.del(s->fd);
-	::close(s->fd);
+	s->fd = -1;
 	s->status = SocketStatus_Idle;
 }
 
@@ -157,8 +166,9 @@ void SocketLoop::handleConnect(Socket* s) {
 	int32_t error;
 	socklen_t len = sizeof(error);
 	int32_t code = getsockopt(s->fd, SOL_SOCKET, SO_ERROR, &error, &len);
+	m_connTimeout.del(s->id);
 	if (code < 0 || error) {
-		STORM_ERROR << "connect error: " << strerror(error);
+		STORM_ERROR << "connect error, " << (*s) << ", error: " << strerror(error);
         forceClose(s, CloseType_ConnectFail);
 		return;
 	}
@@ -167,9 +177,6 @@ void SocketLoop::handleConnect(Socket* s) {
 
 	s->handler->onConnect(s);
 	m_poll.addEvent(s->fd, EP_READ, s);
-
-	// TODO 这里应该不要，连接上发送数据，应该是更上层的设计
-	//handleWrite(s);
 }
 
 void SocketLoop::handleRead(Socket* s) {
@@ -199,7 +206,7 @@ void SocketLoop::handleRead(Socket* s) {
     		} else if (errno == EINTR) {
     			continue;
     		} else {
-				STORM_ERROR << "connection error fd: " << s->fd << " error: " << strerror(errno);
+				STORM_ERROR << "connection error, " << *s << ", error: " << strerror(errno);
 				needClose = true;
     			break;
     		}
@@ -247,7 +254,7 @@ void SocketLoop::handleWrite(Socket* s) {
 				continue;
 			} else {
 				needClose = true;
-				STORM_INFO << "send error fd: " << s->fd << ", error: " << strerror(errno);
+				STORM_ERROR << "send error, " << *s << ", error: " << strerror(errno);
 				break;
 			}
 		} else {
@@ -292,6 +299,7 @@ void SocketLoop::runOnce(int32_t ms) {
 			}
 		}
 	}
+	m_connTimeout.timeout(UtilTime::getNow());
 }
 
 void SocketLoop::handleCmd() {
@@ -338,7 +346,7 @@ void SocketLoop::connectSocket(int32_t id) {
 		socketKeepAlive(fd);
 		socketNonBlock(fd);
 
-		//STORM_DEBUG << "ip " << s->ip << " port " << s->port;
+		//STORM_DEBUG << "connect: " << s->ip << ":" << s->port;
 		struct sockaddr_in stAddr;
 		memset(&stAddr, 0, sizeof(stAddr));
 		stAddr.sin_family = AF_INET;
@@ -348,7 +356,7 @@ void SocketLoop::connectSocket(int32_t id) {
 		int status = ::connect(fd, (struct sockaddr*)&stAddr, sizeof(stAddr));
 		if (status != 0 && errno != EINPROGRESS) {
 			::close(fd);
-			STORM_ERROR << "connect error: " << strerror(errno);
+			STORM_ERROR << "connect error, id:" << id << ", " << s->ip << ":" << s->port << ", error: " << strerror(errno);
 			break;
 		}
 
@@ -364,6 +372,7 @@ void SocketLoop::connectSocket(int32_t id) {
 		} else {
 			s->status = SocketStatus_Connecting;
 			m_poll.addEvent(fd, EP_WRITE, s);
+			m_connTimeout.add(id, UtilTime::getNow());
 		}
 	} while (0);
 
@@ -531,6 +540,10 @@ void SocketLoop::terminate() {
 	SocketCmd cmd;
 	cmd.type = SocketCmd_Exit;
 	pushCmd(cmd);
+}
+
+void SocketLoop::doConnTimeClose(uint32_t id) {
+	closeSocket(id, CloseType_ConnTimeOut);
 }
 
 } // namespace storm

@@ -1,0 +1,15 @@
+syntax = "proto2";
+
+package storm;
+
+message QueryServiceReq {
+	optional string appName = 1;
+	optional string serverName = 2;
+	optional string setName = 3;
+}
+
+message QueryServiceAck {
+	repeated string active_service_endpoints = 1;
+	repeated string inactive_service_endpoints = 2;
+}
+

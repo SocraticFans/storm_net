@@ -16,6 +16,8 @@
 #include "storm_listener.h"
 #include "storm_proxy_manager.h"
 
+#include "proto/registry.h"
+
 namespace storm {
 
 class StormServer {

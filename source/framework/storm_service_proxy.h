@@ -15,6 +15,7 @@
 #include "connection.h"
 #include "server_config.h"
 #include "storm_request.h"
+#include "proto/registry.pb.h"
 
 namespace storm {
 class ServiceProxy;
@@ -48,6 +49,10 @@ public:
 
 	void send(const char* data, uint32_t len);
 	void send(const std::string& data);
+
+	bool operator == (const ProxyEndPoint& ep) {
+		return m_ip == ep.m_ip && m_port == ep.m_port;
+	}
 	
 
 private:
@@ -89,6 +94,14 @@ public:
 	// 调用结束的处理
 	void finishInvoke(RequestMessage* message);
 
+	bool needLocator() {
+		return m_needLocator;
+	}
+
+	void doAsyncUpdateEndPoints();
+
+	void updateEndPoints(const QueryServiceAck& ack);
+
 private:
 	// 选择一个端点
 	ProxyEndPoint* selectEndPoint();
@@ -110,7 +123,6 @@ private:
 	ServiceProxyManager* m_mgr;						// proxy管理器
 	bool m_inLoop;									// 消息是否在网络loop线程处理
 	bool m_needLocator;								// 是否需要定位
-	std::string m_name;
 
 	EndPointVec m_activeEndPoints;					// 活跃的端点
 	EndPointVec m_inactiveEndPoints;				// 故障的端点
@@ -121,6 +133,11 @@ private:
 	MessageMap m_reqMessages; 						// 发出去的消息
 
 	TimeList<uint32_t, uint64_t> m_timeout;			// 响应超时队列
+	std::string m_appName;							// 应用名称
+	std::string m_serverName;						// server名字
+	std::string m_serviceName;						// service名字
+	std::string m_setName;							// set名字
+	std::string m_name;
 };
 
 template <typename T>

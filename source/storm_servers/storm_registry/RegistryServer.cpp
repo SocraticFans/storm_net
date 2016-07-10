@@ -1,15 +1,24 @@
 #include "RegistryServer.h"
 #include "RegistryServiceImp.h"
+#include "ServiceManager.h"
+#include "RegistryConfig.h"
 
 namespace Registry {
 
 bool RegistryServer::init() {
-	//addService<>();
+	addService<RegistryServiceImp>("RegistryService");
+
+	if (!g_config.init()) {
+		return false;
+	}
+	if (!ServiceManager::instance()->init()) {
+		return false;
+	}
 	return true;
 }
 
 void RegistryServer::mainLoop() {
-
+	ServiceManager::instance()->update();
 }
 
 void RegistryServer::mainLoopDestory() {

@@ -21,7 +21,8 @@ EchoServiceProxy* g_proxy = NULL;
 
 // 考虑下在init里调用其他服务，尤其是同步调用问题
 bool Client::init() {
-	g_proxy = m_proxyMgr->stringToProxy<EchoServiceProxy>("Server@tcp -h 127.0.0.1 -p 10002");
+	g_proxy = m_proxyMgr->stringToProxy<EchoServiceProxy>("Storm.Server.EchoService");
+	//g_proxy = m_proxyMgr->stringToProxy<EchoServiceProxy>("Storm.Server.EchoService@tcp -h 127.0.0.1 -p 10002");
 	setLoopInterval(2000);
 	return true;
 }
@@ -45,7 +46,7 @@ void Client::mainLoop() {
 			STORM_DEBUG << "ack: " << ack.Utf8DebugString();
 		}
 		//g_proxy->async_Echo(new CallBackEcho, req);
-		sleep(1);
+		sleep(5);
 	//}
 }
 

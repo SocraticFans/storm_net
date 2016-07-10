@@ -8,6 +8,7 @@
 
 #include "util/util_log.h"
 #include "util/util_file.h"
+#include "proto/registry.h"
 
 
 using namespace std;
@@ -39,7 +40,7 @@ void redOutput(const string& content) {
 }
 
 StormServer::StormServer()
-:m_loopInterval(2000)
+:m_loopInterval(20000)
 ,m_netLoop(NULL) {
 	m_netLoop = new SocketLoop();
 	m_proxyMgr = new ServiceProxyManager(m_netLoop);
@@ -215,13 +216,13 @@ void StormServer::terminateNetThread() {
 
 void StormServer::netEntry() {
 	while (!g_netRunning) {
-		m_netLoop->runOnce(200);
+		m_netLoop->runOnce(1000);
 		m_netTimer.update(UtilTime::getNowMS());
 		m_netLoop->runOnce(0);
 		m_proxyMgr->updateInNetLoop();
 	}
 	while (g_netRunning) {
-		m_netLoop->runOnce(200);
+		m_netLoop->runOnce(1000);
 		netLoop();	
 		m_netTimer.update(UtilTime::getNowMS());
 		m_netLoop->runOnce(0);
@@ -243,7 +244,7 @@ void StormServer::parseConfig(int argc, char** argv) {
 
 	string configFile = m_option.getConfigFile();
 	if (configFile.empty()) {
-		configFile = string(briefLogFileName(argv[0])) + ".conf";
+		configFile = string(briefLogFileName(argv[0])) + ".storm.conf";
 	}
 
 	CConfig config;
@@ -310,6 +311,16 @@ void StormServer::parseClientConfig(const CConfig& cfg) {
 //	m_clientCfg.registeryAddress = cfg.getCfg("registery");
 	m_clientCfg.asyncThreadNum = cfg.getCfg<uint32_t>("asyncThread", 1);
 	m_clientCfg.connectTimeOut = cfg.getCfg<uint32_t>("connectTimeOut", 3000);
+	uint32_t update_time = cfg.getCfg<uint32_t>("update_time", 60);
+	m_proxyMgr->setUpdateTime(update_time);
+	if (cfg.hasConfigKey("registry")) {
+		std::string registryStr = cfg.getCfg("registry");
+		RegistryServiceProxy* registryProxy = m_proxyMgr->stringToProxy<RegistryServiceProxy>(registryStr);
+		m_proxyMgr->setRegistryProxy(registryProxy);
+		if (registryProxy == NULL) {
+			STORM_ERROR << "invalid registry";
+		}
+	}
 }
 
 void StormServer::displayServer() {

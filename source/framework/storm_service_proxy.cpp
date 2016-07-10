@@ -7,6 +7,7 @@
 #include "util/util_protocol.h"
 #include "util/util_log.h"
 #include "util/util_time.h"
+#include "proto/registry.h"
 
 namespace storm {
 
@@ -32,6 +33,7 @@ void ProxyEndPoint::onClose(Socket* s, uint32_t closeType) {
 	}
 	m_connId = -1;
 	m_connected = false;
+	m_buffer->reset();
 	lock.unlock();
 
 	m_proxy->onClose(this, closeType);
@@ -162,6 +164,7 @@ bool ServiceProxy::parseFromString(const string& config) {
 	if (pos != string::npos) {
 		m_needLocator = false;	
 		m_name = config.substr(0, pos) + "Proxy";
+		
 		vector<string> endpoints = UtilString::splitString(config.substr(pos + 1), ":");
 		for (uint32_t i = 0; i < endpoints.size(); ++i) {
 			string desc = endpoints[i];
@@ -203,10 +206,57 @@ bool ServiceProxy::parseFromString(const string& config) {
 	} else {
 		m_needLocator = true;
 		m_name = config + "Proxy";
-		//TODO 同步调用locator
+		vector<string> serviceNames = UtilString::splitString(config, ".");
+		if (serviceNames.size() < 3) {
+			STORM_ERROR << "service name shoud be [appName.serverName.serviceName]";
+			return false;
+		}
+		m_appName = serviceNames[0];
+		m_serverName = serviceNames[1];
+		m_serviceName = serviceNames[2];
+		// 同步调用locator
+		QueryServiceReq req;
+		req.set_app_name(m_appName);
+		req.set_server_name(m_serverName);
+		req.set_service_name(m_serviceName);
+		req.set_set_name(m_setName);
+		QueryServiceAck ack;
+		int32_t ret = m_mgr->getRegistryProxy()->Query(req, ack);
+		if (ret) {
+			STORM_ERROR << "updateEndPoints Error: " << ret;
+		} else {
+			updateEndPoints(ack);
+		}
 	}
 
 	return true;
+}
+
+class RegistryCallBack : public RegistryServiceProxyCallBack {
+public:
+	RegistryCallBack(ServiceProxy* proxy)
+		:m_proxy(proxy) {}
+
+	virtual void callback_Query(int32_t ret, const QueryServiceAck& ack) {
+		if (ret) {
+			STORM_ERROR << "updateEndPoints Error: " << ret;
+		} else {
+			m_proxy->updateEndPoints(ack);
+		}
+	};
+
+private:
+	ServiceProxy* m_proxy;
+};
+
+void ServiceProxy::doAsyncUpdateEndPoints() {
+	QueryServiceReq req;
+	req.set_app_name(m_appName);
+	req.set_server_name(m_serverName);
+	req.set_service_name(m_serviceName);
+	req.set_set_name(m_setName);
+
+	m_mgr->getRegistryProxy()->async_Query(new RegistryCallBack(this), req);
 }
 
 void ServiceProxy::hash(int64_t code) {
@@ -289,7 +339,6 @@ void ServiceProxy::finishInvoke(RequestMessage* message) {
 		ScopeMutex<Notifier> lock(message->notifier);
 		message->back = true;
 		message->notifier.signal();
-		//STORM_DEBUG << "finishInvoke";
 		return;
 	} else if (message->invokeType == InvokeType_Async) {
 		if (getTid() == message->threadId) {
@@ -344,7 +393,48 @@ void ServiceProxy::moveToInactive(ProxyEndPoint* ep) {
 			++it;
 		}
 	}
-	m_activeEndPoints.push_back(ep);
+	m_inactiveEndPoints.push_back(ep);
+}
+
+void ServiceProxy::updateEndPoints(const QueryServiceAck& ack) {
+	ScopeMutex<Mutex> lock(m_epMutex);
+	std::list<ProxyEndPoint*> all;
+	for (auto it = m_activeEndPoints.begin(); it != m_activeEndPoints.end(); ++it) {
+		all.push_back(*it);
+	}
+	for (auto it = m_inactiveEndPoints.begin(); it != m_inactiveEndPoints.end(); ++it) {
+		all.push_back(*it);
+	}
+	m_activeEndPoints.clear();
+	m_inactiveEndPoints.clear();
+
+	for (int32_t i = 0; i < ack.active_endpoints_size(); ++i) {
+		std::string ip = ack.active_endpoints(i).ip();
+		uint32_t port = ack.active_endpoints(i).port();
+		bool found = false;
+		for (auto it = all.begin(); it != all.end(); ) {
+			ProxyEndPoint* ep = *it;
+			if (ep->m_ip == ip && ep->m_port == port) {
+				found = true;
+				m_activeEndPoints.push_back(ep);
+				all.erase(it++);
+				break;
+			} else {
+				it++;
+			}
+		}
+		if (!found) {
+			ProxyEndPoint* ep = new ProxyEndPoint(m_loop, this);
+			ep->m_ip = ip;
+			ep->m_port = port;
+			m_activeEndPoints.push_back(ep);
+		}
+	}
+
+	// 其他的暂时全放到不活跃列表里
+	for (auto it = all.begin(); it != all.end(); ++it) {
+		m_inactiveEndPoints.push_back(*it);
+	}
 }
 
 }

@@ -45,12 +45,14 @@ public:
 	void lock() {
 		if (!m_bLocked) {
 			m_lock.lock();
+			m_bLocked = true;
 		}
 	}
 
 	void unlock() {
 		if (m_bLocked) {
 			m_lock.unlock();
+			m_bLocked = false;
 		}
 	}
 

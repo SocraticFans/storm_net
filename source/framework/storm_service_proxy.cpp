@@ -17,6 +17,7 @@ struct ProxyThreadData : public ThreadSingleton<ProxyThreadData> {
 };
 
 void ProxyEndPoint::onConnect(Socket* s) {
+	//STORM_INFO;
 	ScopeMutex<Mutex> lock(m_mutex);
 //	m_connId = s->id;
 	m_connected = true;
@@ -44,6 +45,7 @@ void ProxyEndPoint::onPacket(Socket* s, const char* data, uint32_t len) {
 }
 
 void ProxyEndPoint::send(const char* data, uint32_t len) {
+	//STORM_INFO << m_connected << m_connId;
 	ScopeMutex<Mutex> lock(m_mutex);
 	if (m_connected) {
 		// 已经连接, 直接发送

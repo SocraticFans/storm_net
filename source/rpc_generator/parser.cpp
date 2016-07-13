@@ -129,6 +129,8 @@ void Parser::generatorSource() {
 	m_oss << "/*代码生成器自动生成，请不要手动修改!*/" << endl;
 	m_oss << "#include \"" << m_fileName << ".h\"" << endl;
 	m_oss << endl << endl;
+	m_oss << "using namespace storm;" << endl;
+	m_oss << endl;
 	if (!m_nameSpace.empty()) {
 		m_oss << "namespace " << m_nameSpace << " {" << endl;
 	}
@@ -155,9 +157,8 @@ void Parser::printHead() {
 		string s = m_includes[i];
 		m_oss << "#include \"" << UtilFile::replaceFileExt(s, ".pb.h", true) << "\"" << endl;
 	}
-	m_oss << endl;
 
-	m_oss << "using namespace storm;" << endl;
+	//m_oss << "using namespace storm;" << endl;
 	for (uint32_t i = 0; i < m_usingNameSpace.size(); ++i) {
 		string s = m_usingNameSpace[i];
 		m_oss << "using namespace " << s << ";" << endl;
@@ -182,32 +183,32 @@ void Parser::printTail() {
 void Parser::printServiceHead(Service& s) {
 	//Service
 	m_oss << endl;
-	m_oss << "class " << s.m_serviceName << " : public StormService {" << endl;
+	m_oss << "class " << s.m_serviceName << " : public storm::StormService {" << endl;
 	m_oss << "public:" << endl;
-	tab(1) << s.m_serviceName << "(SocketLoop* loop, StormListener* listener)" << endl;
-	tab(2) << ":StormService(loop, listener) {" << endl;
+	tab(1) << s.m_serviceName << "(storm::SocketLoop* loop, storm::StormListener* listener)" << endl;
+	tab(2) << ":storm::StormService(loop, listener) {" << endl;
 	tab(1) << "}" << endl;
 	m_oss << "\t" << "virtual ~" << s.m_serviceName << "(){}" << endl;
 
 	m_oss << endl;
-	m_oss << "\t" << "virtual int32_t onRpcRequest(const Connection& conn, const RpcRequest& req, RpcResponse& resp);" << endl;
+	m_oss << "\t" << "virtual int32_t onRpcRequest(const storm::Connection& conn, const storm::RpcRequest& req, storm::RpcResponse& resp);" << endl;
 
 	m_oss << endl;
 	for (uint32_t i = 0; i < s.m_functions.size(); ++i) {
 		Function& f = s.m_functions[i];
-		m_oss << "\t" << "virtual void " << f.m_name << "(const Connection& conn, const "
+		m_oss << "\t" << "virtual int32_t " << f.m_name << "(const storm::Connection& conn, const "
 			<< f.m_inputClassName << "& " << f.m_inputParamName << ", " << f.m_outputClassName
-			<< "& " << f.m_outputParamName << ") {}" << endl;
+			<< "& " << f.m_outputParamName << ") {return 0;}" << endl;
 	}
 	m_oss << "};" << endl;
 
 	//CallBack
 	m_oss << endl;
-	m_oss << "class " << s.m_serviceName << "ProxyCallBack : public ServiceProxyCallBack {" << endl;
+	m_oss << "class " << s.m_serviceName << "ProxyCallBack : public storm::ServiceProxyCallBack {" << endl;
 	m_oss << "public:" << endl;
 	m_oss << "\t" << "virtual ~" << s.m_serviceName << "ProxyCallBack(){}" << endl;
 	m_oss << endl;
-	m_oss << "\t" << "virtual void dispatch(RequestMessage* req);" << endl;
+	m_oss << "\t" << "virtual void dispatch(storm::RequestMessage* req);" << endl;
 	m_oss << endl;
 
 	for (uint32_t i = 0; i < s.m_functions.size(); ++i) {
@@ -221,7 +222,7 @@ void Parser::printServiceHead(Service& s) {
 
 	//Proxy
 	m_oss << endl;
-	m_oss << "class " << s.m_serviceName << "Proxy : public ServiceProxy {" << endl;
+	m_oss << "class " << s.m_serviceName << "Proxy : public storm::ServiceProxy {" << endl;
 	m_oss << "public:" << endl;
 	m_oss << "\t" << "virtual ~" << s.m_serviceName << "Proxy(){}" << endl;
 
@@ -239,8 +240,9 @@ void Parser::printServiceHead(Service& s) {
 
 void Parser::printServiceSource(Service& s) {
 	//Service
-	m_oss << "int32_t " << s.m_serviceName << "::onRpcRequest(const Connection& conn, const RpcRequest& req, RpcResponse& resp) {" << endl;
+	m_oss << "int32_t " << s.m_serviceName << "::onRpcRequest(const storm::Connection& conn, const storm::RpcRequest& req, storm::RpcResponse& resp) {" << endl;
 
+	tab(1) << "int32_t ret = 0;" << endl;
 	m_oss << "\t" << "switch (req.proto_id()) {" << endl;
 	for (uint32_t i = 0; i < s.m_functions.size(); ++i) {
 		Function& f = s.m_functions[i];
@@ -252,7 +254,7 @@ void Parser::printServiceSource(Service& s) {
 		tab(4) << "STORM_ERROR << \"error\";" << endl;
 		tab(4) << "return ResponseStatus_CoderError;" << endl;
 		tab(3) << "}" << endl;
-		tab(3) << f.m_name << "(conn, __request, __response);" << endl;
+		tab(3) << "ret = " << f.m_name << "(conn, __request, __response);" << endl;
 		tab(3) << "if (req.invoke_type() != InvokeType_OneWay) {" << endl;
 		tab(4) << "if (!__response.SerializeToString(resp.mutable_response())) {" << endl;
 		tab(5) << "STORM_ERROR << \"error\"; " << endl;
@@ -267,12 +269,12 @@ void Parser::printServiceSource(Service& s) {
 	tab(1) << "}" << endl;
 
 	m_oss << endl;
-	tab(1) << "return 0;" << endl;
+	tab(1) << "return ret;" << endl;
 	m_oss << "}" << endl;
 
 	//ServiceProxyCallBack
 	m_oss << endl;
-	m_oss << "void " << s.m_serviceName << "ProxyCallBack::" << "dispatch(RequestMessage* req) {" << endl;
+	m_oss << "void " << s.m_serviceName << "ProxyCallBack::" << "dispatch(storm::RequestMessage* req) {" << endl;
 	tab(1) << "uint32_t protoId = req->req.proto_id();" << endl;
 	tab(1) << "switch (protoId) {" << endl;
 	for (uint32_t i = 0; i < s.m_functions.size(); ++i) {
@@ -290,7 +292,7 @@ void Parser::printServiceSource(Service& s) {
 	tab(3) << "STORM_ERROR << \"unkown protoId \" << protoId;" << endl;
 	tab(2) << "}" << endl;
 	tab(1) << "}" << endl;
-	tab(1) << "ServiceProxy::delRequest(req);" << endl;
+	tab(1) << "storm::ServiceProxy::delRequest(req);" << endl;
 	m_oss << "}" << endl;
 
 	//ServiceProxy
@@ -302,7 +304,7 @@ void Parser::printServiceSource(Service& s) {
 		m_oss <<  "int32_t " << s.m_serviceName << "Proxy::" << f.m_name << "(const "
 			<< f.m_inputClassName << "& request" << ", " << f.m_outputClassName
 			<< "& response) {" << endl;
-		tab(1) << "RequestMessage* message = newRequest(InvokeType_Sync);" << endl;
+		tab(1) << "storm::RequestMessage* message = newRequest(InvokeType_Sync);" << endl;
 		tab(1) << "message->req.set_proto_id(" << f.m_protoId << ");" << endl;
 		tab(1) << "request.SerializeToString(message->req.mutable_request());" << endl;
 		m_oss << endl;
@@ -317,7 +319,7 @@ void Parser::printServiceSource(Service& s) {
 
 		//异步
 		m_oss << "void " << s.m_serviceName << "Proxy::" << "async_" << f.m_name << "(" << s.m_serviceName << "ProxyCallBack* cb, const " << f.m_inputClassName << "& request, bool broadcast) {" << endl;
-		tab(1) << "RequestMessage* message = newRequest(InvokeType_Async, cb, broadcast);" << endl;
+		tab(1) << "storm::RequestMessage* message = newRequest(InvokeType_Async, cb, broadcast);" << endl;
 		tab(1) << "uint32_t invokeType = message->invokeType;" << endl;
 		tab(1) << "message->req.set_proto_id(" << f.m_protoId << ");" << endl;
 		tab(1) << "request.SerializeToString(message->req.mutable_request());" << endl;

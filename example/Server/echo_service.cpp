@@ -3,7 +3,7 @@
 
 static uint32_t count = 0;
 static uint64_t lastTime = 0;
-void EchoServiceImp::Echo(const Connection& conn, const EchoReq& req, EchoAck& ack) {
+int32_t EchoServiceImp::Echo(const Connection& conn, const EchoReq& req, EchoAck& ack) {
 //	STORM_DEBUG << req.msg();
 	ack.set_msg(req.msg());
 	count++;
@@ -13,5 +13,6 @@ void EchoServiceImp::Echo(const Connection& conn, const EchoReq& req, EchoAck& a
 		count = 0;
 		lastTime = now;
 	}
+	return 0;
 }
 

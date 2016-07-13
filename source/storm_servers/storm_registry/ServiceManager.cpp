@@ -1,6 +1,7 @@
 #include "ServiceManager.h"
 #include "util/util_log.h"
 #include "util/util_time.h"
+#include "util/util_string.h"
 
 #include "RegistryConfig.h"
 
@@ -20,6 +21,7 @@ void ServiceManager::loadFromDB() {
 	LOG_INFO;
 	m_reloadSec = UtilTime::getNow();
 	ServiceMap services;
+	std::set<std::string> allServiceStr;
 	try {
 		MySqlResult::ptr res = m_mysql.select(m_tblName, "*");
 		if (res->size() == 0) {
@@ -35,14 +37,24 @@ void ServiceManager::loadFromDB() {
 			ep.port = res->get<uint32_t>(i, "port");
 			std::string key = ep.appName + ep.serverName + ep.serviceName + ep.setName;
 			services[key].push_back(ep);
+			std::string ipPort =  ep.ip + "-" + UtilString::tostr(ep.port);
+			allServiceStr.insert(ipPort);
 		}
 
 	} catch (std::exception& e) {
 		LOG_ERROR << e.what();
 		return;
 	}
-	ScopeMutex<Mutex> lock(m_mutex);
-	m_services.swap(services);
+
+	{
+		ScopeMutex<Mutex> lock(m_mutex);
+		m_services.swap(services);
+	}
+	{
+		ScopeMutex<Mutex> lock(m_mutexAllService);
+		m_allService.swap(allServiceStr);
+	}
+
 }
 
 void ServiceManager::addNewService(const EndPoint& ep) {
@@ -84,6 +96,12 @@ void ServiceManager::update() {
 	}
 }
 
+bool ServiceManager::isNewService(const std::string& ip, uint32_t port) {
+	std::string ipPort =  ip + "-" + UtilString::tostr(port);
+	ScopeMutex<Mutex> lock(m_mutexAllService);
+	return m_allService.find(ipPort) == m_allService.end();
+}
+
 void ServiceManager::getService(vector<EndPoint>& services, const string& appName,
 								const string& serverName, const string& serviceName, const string& setName) {
 	std::string key = appName + serverName + serviceName + setName;
@@ -95,4 +113,37 @@ void ServiceManager::getService(vector<EndPoint>& services, const string& appNam
 	}
 	services = it->second;
 }
+
+void ServiceManager::heartBeat(const ServiceInfo& req) {
+	bool isNew = isNewService(req.ip(), req.port());
+	std::string key = req.app_name() + req.server_name() + req.service_name() + req.set_name();
+	if (isNew) {
+		EndPoint ep;
+		ep.appName = req.app_name();
+		ep.serverName = req.server_name();
+		ep.serviceName = req.service_name();
+		ep.setName = req.set_name();
+		ep.ip = req.ip();
+		ep.port = req.port();
+		ep.lastHeartBeatTime = UtilTime::getNow();
+		ep.active = true;
+
+		addNewService(ep);
+
+		ScopeMutex<Mutex> lock(m_mutex);
+		m_services[key].push_back(ep);
+	} else {
+		ScopeMutex<Mutex> lock(m_mutex);
+		std::vector<EndPoint> vec = m_services[key];
+		for (auto it = vec.begin(); it != vec.end(); ++it) {
+			EndPoint& ep = *it;
+			if (ep.ip == req.ip() && ep.port == req.port()) {
+				ep.lastHeartBeatTime = UtilTime::getNow();
+				ep.active = true;
+			}
+		}
+	}
+
+}
+
 }

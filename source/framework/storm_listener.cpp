@@ -8,6 +8,8 @@
 #include "util/util_time.h"
 
 #include "storm_service.h"
+#include "storm_proxy_manager.h"
+#include "storm_server.h"
 
 using namespace std;
 
@@ -16,7 +18,8 @@ namespace storm {
 StormListener::StormListener(SocketLoop* loop, bool inLoop)
 	:SocketHandler(loop),
 	 m_inLoop(inLoop),
-	 m_service(NULL) {
+	 m_service(NULL),
+	 m_lastHeartBeatSec(0) {
 
 }
 
@@ -99,6 +102,22 @@ void StormListener::updateNet() {
 	uint32_t now = UtilTime::getNow();
 	m_conList.timeout(now);
 	m_timelist.timeout(now);
+
+	RegistryServiceProxy* proxy = g_stormServer->getProxyManager()->getRegistryProxy();
+	if (now > m_lastHeartBeatSec + 30 && proxy) {
+		STORM_INFO;
+		const ServerConfig& serverConfig = g_stormServer->getServerConfig();
+		ServiceHeartBeatReq req;
+		ServiceInfo* info = req.mutable_info();
+		info->set_app_name(serverConfig.appName);
+		info->set_server_name(serverConfig.serverName);
+		info->set_service_name(m_config.name);
+		info->set_set_name(serverConfig.setName);
+		info->set_ip(m_config.host);
+		info->set_port(m_config.port);
+		proxy->async_HeartBeat(NULL, req);
+		m_lastHeartBeatSec = now;
+	}
 }
 
 void StormListener::doTimeClose(uint32_t id) {

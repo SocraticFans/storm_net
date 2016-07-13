@@ -11,7 +11,7 @@ public:
 		:EchoService(loop, listener) {}
 	virtual ~EchoServiceImp() {}
 
-	virtual void Echo(const Connection& conn, const EchoReq& req, EchoAck& ack);
+	virtual int32_t Echo(const Connection& conn, const EchoReq& req, EchoAck& ack);
 };
 
 #endif

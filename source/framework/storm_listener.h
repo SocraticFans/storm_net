@@ -74,6 +74,8 @@ public:
 	LockQueue<Packet*> m_queue;
 	TimeList<uint32_t, uint32_t> m_conList;  //新连接检测
 	TimeList<uint32_t, uint32_t> m_timelist; //超时检测
+
+	uint32_t m_lastHeartBeatSec;
 };
 
 }

@@ -543,6 +543,7 @@ void SocketLoop::terminate() {
 }
 
 void SocketLoop::doConnTimeClose(uint32_t id) {
+	STORM_DEBUG;
 	closeSocket(id, CloseType_ConnTimeOut);
 }
 

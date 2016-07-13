@@ -24,6 +24,7 @@ install(FILES ${headers1} DESTINATION include)
 install(FILES ${headers2} DESTINATION include/net)
 install(FILES ${headers3} DESTINATION include/util)
 install(FILES ${headers4} DESTINATION include/framework)
+install(FILES ${headers5} DESTINATION include/proto)
 
 add_subdirectory(rpc_generator)
 add_subdirectory(storm_servers/storm_registry)

@@ -1,5 +1,9 @@
 #include "registry.proto"
- 
+
+using namespace storm;
+
 service RegistryService {
 	Query(QueryServiceReq req, QueryServiceAck ack) = 1;
+	HeartBeat(ServiceHeartBeatReq req, ServiceHeartBeatAck ack) = 2;
+	Stop(ServiceStopReq req, ServiceStopAck ack) = 3;
 };

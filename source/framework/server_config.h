@@ -29,6 +29,7 @@ struct ServiceConfig {
 struct ServerConfig {
 	std::string appName;			// 应用名称
 	std::string serverName;			// 服务名称
+	std::string setName;			// set名字
 	std::string pidFileName;		// pid文件名称
 
 	std::string basePath;

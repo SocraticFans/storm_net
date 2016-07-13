@@ -3,7 +3,7 @@
 
 namespace Registry {
 
-void RegistryServiceImp::Query(const Connection& conn, const QueryServiceReq& req, QueryServiceAck& ack) {
+int32_t RegistryServiceImp::Query(const Connection& conn, const QueryServiceReq& req, QueryServiceAck& ack) {
 	vector<EndPoint> services;
 	ServiceManager::instance()->getService(services, req.app_name(), req.server_name(), req.service_name(), req.set_name());
 	for (auto it = services.begin(); it != services.end(); ++it) {
@@ -12,6 +12,13 @@ void RegistryServiceImp::Query(const Connection& conn, const QueryServiceReq& re
 		ep->set_ip(s.ip);
 		ep->set_port(s.port);
 	}
+	return 0;
+}
+
+int32_t RegistryServiceImp::HeartBeat(const storm::Connection& conn, const ServiceHeartBeatReq& req, ServiceHeartBeatAck& ack) {
+	LOG_INFO;
+	ServiceManager::instance()->heartBeat(req.info());
+	return 0;
 }
 
 }

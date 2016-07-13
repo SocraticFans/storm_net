@@ -11,7 +11,8 @@ public:
 		:RegistryService(loop, listener) {}
 	virtual ~RegistryServiceImp() {}
 
-	virtual void Query(const Connection& conn, const QueryServiceReq& req, QueryServiceAck& ack);
+	virtual int32_t Query(const Connection& conn, const QueryServiceReq& req, QueryServiceAck& ack);
+	virtual int32_t HeartBeat(const storm::Connection& conn, const ServiceHeartBeatReq& req, ServiceHeartBeatAck& ack);
 };
 
 }

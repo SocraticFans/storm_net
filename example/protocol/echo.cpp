@@ -2,7 +2,10 @@
 #include "echo.h"
 
 
-int32_t EchoService::onRpcRequest(const Connection& conn, const RpcRequest& req, RpcResponse& resp) {
+using namespace storm;
+
+int32_t EchoService::onRpcRequest(const storm::Connection& conn, const storm::RpcRequest& req, storm::RpcResponse& resp) {
+	int32_t ret = 0;
 	switch (req.proto_id()) {
 		case 1:
 		{
@@ -12,7 +15,7 @@ int32_t EchoService::onRpcRequest(const Connection& conn, const RpcRequest& req,
 				STORM_ERROR << "error";
 				return ResponseStatus_CoderError;
 			}
-			Echo(conn, __request, __response);
+			ret = Echo(conn, __request, __response);
 			if (req.invoke_type() != InvokeType_OneWay) {
 				if (!__response.SerializeToString(resp.mutable_response())) {
 					STORM_ERROR << "error"; 
@@ -25,10 +28,10 @@ int32_t EchoService::onRpcRequest(const Connection& conn, const RpcRequest& req,
 			return ResponseStatus_NoProtoId;
 	}
 
-	return 0;
+	return ret;
 }
 
-void EchoServiceProxyCallBack::dispatch(RequestMessage* req) {
+void EchoServiceProxyCallBack::dispatch(storm::RequestMessage* req) {
 	uint32_t protoId = req->req.proto_id();
 	switch (protoId) {
 		case 1:
@@ -43,11 +46,11 @@ void EchoServiceProxyCallBack::dispatch(RequestMessage* req) {
 			STORM_ERROR << "unkown protoId " << protoId;
 		}
 	}
-	ServiceProxy::delRequest(req);
+	storm::ServiceProxy::delRequest(req);
 }
 
 int32_t EchoServiceProxy::Echo(const EchoReq& request, EchoAck& response) {
-	RequestMessage* message = newRequest(InvokeType_Sync);
+	storm::RequestMessage* message = newRequest(InvokeType_Sync);
 	message->req.set_proto_id(1);
 	request.SerializeToString(message->req.mutable_request());
 
@@ -59,7 +62,7 @@ int32_t EchoServiceProxy::Echo(const EchoReq& request, EchoAck& response) {
 }
 
 void EchoServiceProxy::async_Echo(EchoServiceProxyCallBack* cb, const EchoReq& request, bool broadcast) {
-	RequestMessage* message = newRequest(InvokeType_Async, cb, broadcast);
+	storm::RequestMessage* message = newRequest(InvokeType_Async, cb, broadcast);
 	uint32_t invokeType = message->invokeType;
 	message->req.set_proto_id(1);
 	request.SerializeToString(message->req.mutable_request());

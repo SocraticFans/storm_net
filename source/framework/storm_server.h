@@ -41,6 +41,14 @@ public:
 
 	void setLoopInterval(uint64_t us);
 
+	ServiceProxyManager* getProxyManager() {
+		return m_proxyMgr;
+	}
+
+	const ServerConfig& getServerConfig() {
+		return m_serverCfg;
+	}
+
 protected:
 	// 主循环入口
 	void mainEntry();
@@ -149,10 +157,8 @@ bool StormServer::addService(const ServiceConfig& cfg, SocketHandler::PacketPars
 	}
 
 	if (cfg.runThread == RunThread_Net) {
-		m_netLoop->setCmdInLoop(true);
 		it->second->setInLoop(true);
 	} else {
-		m_netLoop->setCmdInLoop(false);
 		it->second->setInLoop(false);
 	}
 

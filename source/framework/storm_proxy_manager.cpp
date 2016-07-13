@@ -4,7 +4,8 @@
 
 namespace storm {
 ServiceProxyManager::ServiceProxyManager(SocketLoop* loop)
-:m_loop(loop) {
+:m_loop(loop),
+ m_registryProxy(NULL) {
 	m_lastUpdateTime = UtilTime::getNow();
 }
 

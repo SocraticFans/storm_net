@@ -44,6 +44,11 @@ class RegistryServiceProxy : public storm::ServiceProxy {
 public:
 	virtual ~RegistryServiceProxy(){}
 
+	RegistryServiceProxy* hash(uint64_t code) {
+		storm::ServiceProxy::hash(code);
+		return this;
+	}
+
 	int32_t Query(const QueryServiceReq& req, QueryServiceAck& ack);
 	void async_Query(RegistryServiceProxyCallBack* cb, const QueryServiceReq& req, bool broadcast = false);
 

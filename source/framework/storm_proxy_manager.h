@@ -35,10 +35,9 @@ public:
 		m_updateTime = time;
 	}
 
-
 	// 获得一个service代理
 	template <typename T>
-	T* stringToProxy(const std::string& serviceName) {
+	T* stringToProxy(const std::string& serviceName, const std::string& setName = std::string("")) {
 		ScopeMutex<Mutex> lock(m_mutex);
 		ProxyMap::iterator it = m_proxys.find(serviceName);
 		if (it != m_proxys.end()) {
@@ -50,7 +49,7 @@ public:
 		m_proxys.insert(std::make_pair(serviceName, proxy));
 		lock.unlock();
 
-		if (proxy->parseFromString(serviceName) == false) {
+		if (proxy->parseFromString(serviceName, setName) == false) {
 			delete proxy;
 			STORM_ERROR << "error! string: " << serviceName;
 			// 删了

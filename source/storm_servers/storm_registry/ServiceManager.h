@@ -19,14 +19,14 @@ namespace Registry {
 
 struct EndPoint {
 	EndPoint()
-		:lastHeartBeatTime(0), active(true) {}
+		:heartBeatTime(0), active(true) {}
 	string appName;
 	string serverName;
 	string serviceName;
 	string setName;
 	string ip;
 	uint32_t port;
-	uint32_t lastHeartBeatTime;
+	uint32_t heartBeatTime;
 	bool active;
 };
 
@@ -45,8 +45,11 @@ private:
 	void loadFromDB();
 	void addNewService(const EndPoint& ep);
 	void flushNewServiceToDB();
-
+	void addUpdateService(const EndPoint& ep);
+	void flushUpdateServiceToDB();
 	bool isNewService(const std::string& ip, uint32_t port);
+
+	std::string getKey(const string& appName, const string& serverName, const string& serviceName, const string& setName);
 
 private:
 	// key = appName + serverName + serviceName + setName
@@ -58,9 +61,13 @@ private:
 	Mutex m_newMutex;
 	std::vector<EndPoint> m_newServices;
 
+	Mutex m_updateMutex;
+	std::vector<EndPoint> m_updateServices;
+
 	Mutex m_mutexAllService;
 	std::set<std::string> m_allService;	// ip + port 组成的key
 
+	uint32_t m_updateSec;
 	uint32_t m_reloadSec;
 	MySqlConn m_mysql;
 	string m_tblName;

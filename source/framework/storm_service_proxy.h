@@ -73,7 +73,7 @@ public:
 	void setLoop(SocketLoop* loop) { m_loop = loop; }
 	void setManager(ServiceProxyManager* mgr) { m_mgr = mgr; }
 
-	bool parseFromString(const std::string& config);
+	bool parseFromString(const std::string& config, const std::string& setName);
 
 	// 继承类实现一个hash方法，return this
 	void hash(int64_t code);

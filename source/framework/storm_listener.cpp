@@ -24,7 +24,7 @@ StormListener::StormListener(SocketLoop* loop, bool inLoop)
 }
 
 void StormListener::onAccept(Socket* s) {
-	STORM_INFO <<  m_name << ", accept id: " << s->id << " "  << s->ip << ":" << s->port;
+//	STORM_INFO <<  m_name << ", accept id: " << s->id << " "  << s->ip << ":" << s->port;
 	if (m_timelist.size() >= m_config.maxConnections) {
 		STORM_ERROR << "max Connection";
 		m_loop->close(s->id, CloseType_Self);
@@ -46,7 +46,7 @@ void StormListener::onAccept(Socket* s) {
 }
 
 void StormListener::onClose(Socket* s, uint32_t closeType) {
-	STORM_INFO << m_name << ", close id: " << s->id << " "  << s->ip << ":" << s->port << " type " << etos((SocketCloseType)closeType);
+//	STORM_INFO << m_name << ", close id: " << s->id << " "  << s->ip << ":" << s->port << " type " << etos((SocketCloseType)closeType);
 
 	m_conList.del(s->id);
 	m_timelist.del(s->id);
@@ -104,8 +104,7 @@ void StormListener::updateNet() {
 	m_timelist.timeout(now);
 
 	RegistryServiceProxy* proxy = g_stormServer->getProxyManager()->getRegistryProxy();
-	if (now > m_lastHeartBeatSec + 30 && proxy) {
-		STORM_INFO;
+	if (now > m_lastHeartBeatSec + 60 && proxy) {
 		const ServerConfig& serverConfig = g_stormServer->getServerConfig();
 		ServiceHeartBeatReq req;
 		ServiceInfo* info = req.mutable_info();

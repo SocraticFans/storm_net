@@ -104,7 +104,7 @@ void ServiceProxy::doReqTimeOut(uint32_t requestId) {
 }
 
 void ServiceProxy::onClose(ProxyEndPoint* ep, uint32_t closeType) {
-	STORM_INFO << m_name << ":" << ep->m_ip << ":" << ep->m_port << ", closeType: " << etos((SocketCloseType)closeType);
+	//STORM_INFO << m_name << ":" << ep->m_ip << ":" << ep->m_port << ", closeType: " << etos((SocketCloseType)closeType);
 
 	if (closeType == CloseType_ConnectFail || closeType == CloseType_ConnTimeOut) {
 		// 非指定ip访问的，移到非活跃ep里面
@@ -161,7 +161,8 @@ void ServiceProxy::onPacket(ProxyEndPoint* ep, const char* data, uint32_t len) {
 	finishInvoke(message);
 }
 
-bool ServiceProxy::parseFromString(const string& config) {
+bool ServiceProxy::parseFromString(const string& config, const string& setName) {
+	m_setName = setName;
 	string::size_type pos = config.find('@');
 	if (pos != string::npos) {
 		m_needLocator = false;	

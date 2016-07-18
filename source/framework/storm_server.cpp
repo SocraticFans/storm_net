@@ -276,7 +276,9 @@ uint32_t StormServer::parserRunThread(const std::string& str) {
 void StormServer::parseServerConfig(const CConfig& cfg) {
 	m_serverCfg.appName = cfg.getCfg("app");
 	m_serverCfg.serverName = cfg.getCfg("server");
+	m_serverCfg.setName = cfg.getCfg("set", "");
 	m_serverCfg.pidFileName = m_serverCfg.serverName + ".pid";
+
 
 	m_serverCfg.logNum = cfg.getCfg<uint32_t>("log_num", 10);
 	m_serverCfg.logSize = UtilString::parseHumanReadableSize(cfg.getCfg("log_size", "50M"));

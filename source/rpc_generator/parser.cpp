@@ -225,6 +225,12 @@ void Parser::printServiceHead(Service& s) {
 	m_oss << "class " << s.m_serviceName << "Proxy : public storm::ServiceProxy {" << endl;
 	m_oss << "public:" << endl;
 	m_oss << "\t" << "virtual ~" << s.m_serviceName << "Proxy(){}" << endl;
+	m_oss << endl;
+
+	tab(1) << s.m_serviceName << "Proxy* hash(uint64_t code) {" << endl;
+	tab(2) << "storm::ServiceProxy::hash(code);" << endl;
+	tab(2) << "return this;" << endl;
+	tab(1) << "}" << endl;
 
 	for (uint32_t i = 0; i < s.m_functions.size(); ++i) {
 		m_oss << endl;

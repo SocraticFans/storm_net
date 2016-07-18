@@ -19,6 +19,9 @@ struct RegistryConfig {
 	bool init();
 
 	DBConfig dbConfig;
+	uint32_t reloadInterval;
+	uint32_t activeInterval;
+	uint32_t updateInterval;
 };
 
 extern RegistryConfig g_config;

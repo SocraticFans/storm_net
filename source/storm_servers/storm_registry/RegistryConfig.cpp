@@ -16,6 +16,10 @@ bool RegistryConfig::init() {
 		dbConfig.dbname = config.getCfg("/server/DB/dbname");
 		dbConfig.port = config.getCfg("/server/DB/port", 3306);
 		dbConfig.charset = config.getCfg("/server/DB/charset", "utf8");
+
+		reloadInterval = 58;
+		activeInterval = 122;
+		updateInterval = 2;
 	} catch (std::exception& e) {
 		LOG_ERROR << e.what();
 		return false;

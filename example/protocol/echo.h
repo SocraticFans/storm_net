@@ -35,6 +35,11 @@ class EchoServiceProxy : public storm::ServiceProxy {
 public:
 	virtual ~EchoServiceProxy(){}
 
+	EchoServiceProxy* hash(uint64_t code) {
+		storm::ServiceProxy::hash(code);
+		return this;
+	}
+
 	int32_t Echo(const EchoReq& req, EchoAck& ack);
 	void async_Echo(EchoServiceProxyCallBack* cb, const EchoReq& req, bool broadcast = false);
 };

@@ -16,6 +16,9 @@ ServiceProxyManager::~ServiceProxyManager() {
 }
 
 void ServiceProxyManager::updateInMainLoop() {
+	if (m_messages.empty()) {
+		return;
+	}
 	std::list<RequestMessage*> messages;
 	m_messages.swap(messages);
 

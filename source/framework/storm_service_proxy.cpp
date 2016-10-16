@@ -69,7 +69,7 @@ ServiceProxy::ServiceProxy()
 ,m_mgr(NULL)
 ,m_inLoop(false)
 ,m_sequeue(0) {
-	m_timeout.setTimeout(100000);
+	m_timeout.setTimeout(3000);
 	m_timeout.setFunction(std::bind(&ServiceProxy::doReqTimeOut, this, std::placeholders::_1));
 }
 
